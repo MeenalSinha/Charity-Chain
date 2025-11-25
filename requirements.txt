@@ -1,0 +1,47 @@
+# Core Framework
+streamlit
+python-dotenv
+
+# Blockchain & Web3
+web3
+py-solc-x
+eth-account
+
+# AI/ML
+ultralytics
+opencv-python-headless
+scikit-image
+
+# Image Processing
+Pillow
+imagehash
+piexif
+
+# Data & Analytics
+numpy
+pandas
+tinydb
+
+# Visualization
+plotly
+altair
+
+# Networking
+requests
+aiohttp
+
+# Maps
+folium
+streamlit-folium
+
+# Utils
+qrcode
+pycryptodome
+
+# Auto-refresh (optional)
+streamlit-autorefresh
+
+# Testing (dev dependencies)
+pytest
+pytest-cov
+pytest-asyncio
