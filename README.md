@@ -1,8 +1,8 @@
-# 🌍 CharityChain — AI + Web3 Powered Transparent Charity Platform
+# 🌍 CharityChain — AI-Powered Transparent Charity Platform
 
 **Empowering donors with proof of real-world impact**
 
-CharityChain is a decentralized donation platform that ensures every rupee donated creates verifiable, measurable, and authentic humanitarian impact. Using AI-powered evidence verification + NFT-based Proof-of-Impact tokens, donors finally get transparency and confidence like never before.
+CharityChain is a donation platform that ensures every rupee donated creates verifiable, measurable, and authentic humanitarian impact. Using AI-powered evidence verification and digital Proof-of-Impact certificates, donors finally get transparency and confidence like never before.
 
 ---
 
@@ -10,13 +10,13 @@ CharityChain is a decentralized donation platform that ensures every rupee donat
 
 | Module | What it does |
 |--------|-------------|
-| 🤖 **AI Evidence Verification** | Detects fraud, GPS mismatch, tampering, duplication & false progress |
-| 🔗 **Web3-Inspired Smart Funding** | Funds only released after evidence is verified |
-| 🪪 **Proof-of-Impact NFTs** | Donors receive collectible NFTs when milestones are achieved |
+| 🤖 **AI Evidence Verification** | Detects fraud, tampering, and validates evidence authenticity |
+| 🔗 **Smart Funding Logic** | Simulates escrow behavior - funds only released after verification |
+| 🪪 **Proof-of-Impact Certificates** | Donors receive digital certificates when milestones are achieved |
 | 📊 **Impact Analytics Dashboard** | Live charts showing funds raised, verification success rate & progress |
 | 🗺 **Global Project Map** | Visualizes real NGO impact locations using geocoordinates |
 | 🏅 **Badge & Gamification System** | Rewards donors & NGOs for achievement and transparency |
-| 💾 **Offline-Ready DB** | TinyDB ensures the app works even without an active blockchain |
+| 💾 **Lightweight Database** | TinyDB ensures fast local development and prototyping |
 
 ---
 
@@ -29,10 +29,10 @@ Streamlit Frontend (UI)
 CharityTracker Backend Engine
        │
        ├── DatabaseManager (TinyDB)
-       ├── AI Verifier (Image Auth + GPS + Similarity + ML)
-       ├── IPFS Handler (Demo mode)
+       ├── AI Verifier (Object Detection + Tamper Detection + Image Analysis)
+       ├── Mock IPFS Handler (Demo mode with simulated CIDs)
        ├── Oracle Verification Logic
-       ├── NFT + Badge System
+       ├── Certificate & Badge System
        └── Analytics + Visualization Engine
 ```
 
@@ -40,7 +40,7 @@ CharityTracker Backend Engine
 
 ## 🧪 Demo Data (Instant Setup)
 
-The platform auto-loads demo projects on first launch, meaning judges immediately see:
+The platform auto-loads demo projects on first launch, meaning you immediately see:
 - ✅ 5 global charity projects
 - ✅ Realistic donation progress
 - ✅ Pending milestones for evidence upload
@@ -81,7 +81,7 @@ http://localhost:8501/
 CharityChain/
 │
 ├── app_ui.py                # Streamlit frontend
-├── charity_tracker.py       # Backend: DB + AI + NFTs + Analytics
+├── charity_tracker.py       # Backend: DB + AI + Certificates + Analytics
 ├── requirements.txt
 ├── README.md
 │
@@ -90,8 +90,7 @@ CharityChain/
 │   └── evidence/           # Uploaded evidence files
 │
 ├── logs/                    # Application logs
-├── models/                  # Optional model weights (YOLOv8)
-└── build/                   # Smart contract artifacts
+└── models/                  # Optional model weights (YOLOv8)
 ```
 
 ⚠️ **Do NOT commit your local DB file (TinyDB JSON). It is auto-generated.**
@@ -104,50 +103,52 @@ CharityChain/
 |----------|------|
 | **Frontend** | Streamlit |
 | **Backend** | Python |
-| **AI** | Image Authenticity, GPS EXIF, Similarity & Tamper Detection |
-| **Storage** | TinyDB |
-| **Blockchain-Inspired** | NFT simulation, milestone escrow, donor tokens |
+| **AI** | YOLOv8 Object Detection, Image Analysis, Tamper Detection |
+| **Storage** | TinyDB (local JSON database) |
+| **Visualization** | Plotly, Altair, Folium |
 | **Deployment** | Streamlit Cloud / Render |
 
 ---
 
 ## 🤖 AI Verification System
 
-CharityChain uses a **6-algorithm verification engine** to ensure authenticity:
+CharityChain uses multiple verification algorithms to ensure authenticity:
 
 ### 1. **Object Detection (YOLOv8)**
 - Identifies relevant objects in evidence photos
 - Ensures claimed activities are actually present
+- Detects people, construction equipment, infrastructure, etc.
 
-### 2. **GPS Validation**
-- Extracts EXIF geolocation data
-- Verifies location within 1000m radius of project site
-
-### 3. **Tamper Detection (ELA)**
-- Error Level Analysis detects image manipulation
+### 2. **Tamper Detection (Error Level Analysis)**
+- Analyzes compression artifacts to detect image manipulation
 - Flags suspicious editing or Photoshop artifacts
+- Uses ELA (Error Level Analysis) algorithm
 
-### 4. **Perceptual Hashing (pHash)**
-- Compares before/after images
+### 3. **Image Similarity Analysis**
+- Compares before/after images using perceptual hashing (pHash)
 - Detects genuine change vs. fake progress
-
-### 5. **SSIM (Structural Similarity)**
-- Measures image similarity scores
 - Prevents duplicate evidence submission
 
-### 6. **EXIF Metadata Analysis**
-- Validates camera information
-- Checks timestamps and device authenticity
+### 4. **Metadata Inspection**
+- Extracts EXIF data from images
+- Validates camera information and timestamps
+- Checks for metadata tampering
 
-**Confidence Score**: AI generates a 0-100% confidence score. Projects require ≥65% to pass verification.
+### 5. **Location Mapping**
+- Maps user-provided coordinates on interactive map
+- Validates proximity to expected project location
+- *(EXIF GPS extraction planned for future)*
+
+**Confidence Score**: AI generates a 0-100% confidence score based on all checks. Projects require ≥65% to pass verification.
 
 ---
 
 ## 🎮 Gamification & Rewards
 
-### 🪙 Impact Tokens
-- Earn **100 tokens per ETH donated**
-- Redeemable for platform benefits
+### 🪙 Impact Points System
+- Earn **100 points per ETH donated**
+- Gamified engagement to encourage contributions
+- *(Blockchain token minting planned for future)*
 
 ### 🏅 Achievement Badges
 
@@ -157,14 +158,15 @@ CharityChain uses a **6-algorithm verification engine** to ensure authenticity:
 | 🚀 **Early Supporter** | Make your first donation |
 | 🏆 **Impact Champion** | Donate 10+ ETH total |
 | ⭐ **Trusted NGO** | Complete 10+ verified milestones |
-| ✅ **100% Verified** | Earn 5+ Impact NFTs |
+| ✅ **100% Verified** | Earn 5+ Impact Certificates |
 
-### 🎨 NFT Collection
-Every verified donation mints a unique **Proof-of-Impact NFT** containing:
+### 🎨 Certificate Collection
+Every verified donation generates a unique **Proof-of-Impact Certificate** containing:
 - Project details
 - Donation amount
 - Verification timestamp
-- IPFS evidence link
+- Evidence reference
+- *(On-chain NFT minting planned for future)*
 
 ---
 
@@ -173,12 +175,12 @@ Every verified donation mints a unique **Proof-of-Impact NFT** containing:
 ### 🏢 NGO (Charity Organization)
 1. Create charitable projects with funding goals
 2. Submit photo/video evidence when milestones are reached
-3. Receive funds automatically after verification
+3. Receive simulated fund release after verification
 
 ### 💰 Donor
 1. Browse and filter verified projects
 2. Donate to causes they trust
-3. Earn Impact Tokens and NFTs on verification
+3. Earn Impact Points and Certificates on verification
 
 ### 🔍 Oracle (Verifier)
 1. Review AI verification reports
@@ -208,7 +210,7 @@ Real-time insights include:
 - ✅ **MIME Type Validation** - Only accepts JPG/PNG images
 - ✅ **File Size Limits** - Max 10MB per upload
 - ✅ **Rate Limiting** - 10 uploads per hour per user
-- ✅ **GPS Verification** - Ensures evidence location authenticity
+- ✅ **Location Validation** - Verifies project coordinates
 - ✅ **Tamper Detection** - ELA analysis flags manipulated images
 - ✅ **Image Sanitization** - Automatic resizing and format validation
 
@@ -216,15 +218,15 @@ Real-time insights include:
 
 ## 🌐 Environment Variables (Optional)
 
-For production deployment with real blockchain:
+For future blockchain integration:
 
 ```bash
-# Blockchain Configuration
+# Planned Blockchain Configuration
 WEB3_PROVIDER=https://polygon-rpc.com
 CHAIN_ID=137
 ORACLE_PRIVATE_KEY=0x...
 
-# IPFS Storage
+# Planned IPFS Storage
 WEB3_STORAGE_TOKEN=eyJ...
 PINATA_API_KEY=...
 PINATA_SECRET=...
@@ -233,7 +235,7 @@ PINATA_SECRET=...
 OPENAI_API_KEY=sk-...
 ```
 
-**Demo Mode**: Leave empty or set to `DEMO_MODE` to run without blockchain.
+**Current Mode**: All features work in demo/simulation mode without requiring blockchain or IPFS credentials.
 
 ---
 
@@ -249,37 +251,44 @@ pip install ultralytics
 ```
 Model auto-downloads on first run.
 
-### IPFS upload timeout
-- Check internet connection
-- Verify `WEB3_STORAGE_TOKEN` if using production mode
-- Demo mode uses mock uploads
-
 ### Database locked error
 - Restart application
 - Delete `data/charity.db` (resets all data)
 
 ---
 
-## 🏆 Why This Project Wins Hackathons
+## 🏆 Why This Project Stands Out
 
-✔️ **Solves a real humanitarian problem**  
-✔️ **Combines AI + Web3 in a meaningful way**  
-✔️ **Demonstrates full end-to-end flow live in the demo**  
-✔️ **Includes impact, gamification & transparency**  
-✔️ **Takes under 3 minutes to pitch and wows judges visually**
+✔️ **Solves a real humanitarian problem** - Addresses charity transparency crisis  
+✔️ **Working AI verification** - Functional multi-algorithm evidence validation  
+✔️ **Full demo flow** - Complete donor → NGO → oracle → verification cycle  
+✔️ **Rich visualizations** - Interactive maps, charts, and dashboards  
+✔️ **Clean architecture** - Separated UI and backend for maintainability  
+✔️ **Gamification done right** - Badges and achievements drive engagement  
 
 ---
 
 ## 🚧 Future Roadmap
 
-- [ ] Multi-chain support (Ethereum, BSC, Avalanche)
+### Phase 1: Enhanced AI
+- [ ] EXIF GPS extraction and validation
+- [ ] SSIM (Structural Similarity) comparison
+- [ ] Advanced ML fraud detection models
+- [ ] Video evidence support
+
+### Phase 2: Blockchain Integration
+- [ ] Smart contract deployment (Ethereum/Polygon)
+- [ ] On-chain NFT minting (ERC-721)
+- [ ] Token rewards system (ERC-20)
+- [ ] Decentralized oracle network
+
+### Phase 3: Platform Expansion
+- [ ] Real IPFS integration
 - [ ] Mobile app (React Native)
-- [ ] DAO governance for oracle decisions
-- [ ] Integration with real NGO APIs (GiveIndia, GlobalGiving)
-- [ ] Social media sharing of NFTs
-- [ ] Advanced fraud detection ML models
+- [ ] Integration with NGO APIs (GiveIndia, GlobalGiving)
 - [ ] Multi-language support (Hindi, Spanish, French)
 - [ ] SMS notifications for milestone updates
+- [ ] DAO governance for oracle decisions
 
 ---
 
@@ -301,8 +310,6 @@ We welcome contributions! Here's how:
 |------|------|
 | **Meenal Sinha** | Project Lead & Developer |
 
-Want to join the team? Open an issue or PR!
-
 ---
 
 ## 📄 License
@@ -318,9 +325,9 @@ See [LICENSE](LICENSE) file for details.
 - **OpenCV** for image analysis
 - **Ultralytics** for YOLOv8
 - **Streamlit** for rapid UI development
-- **Web3.Storage** for decentralized storage
-- **Polygon** for scalable blockchain infrastructure
 - **TinyDB** for lightweight database
+- **Plotly & Altair** for beautiful visualizations
+- **Folium** for interactive maps
 
 ---
 
@@ -333,6 +340,6 @@ See [LICENSE](LICENSE) file for details.
 
 **Built with ❤️ by the CharityChain Team**
 
-**Version**: 2.0 | **Status**: Production Ready 🚀
+**Version**: 2.0 | **Status**: Working Demo 🚀
 
 ⭐ **If you like this project, please give the repository a star!** ⭐
