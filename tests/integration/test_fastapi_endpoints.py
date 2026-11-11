@@ -10,12 +10,12 @@ from backend.app.main import app
 from backend.app.api.v1.router import (
     get_health,
     get_db_health,
-    list_projects,
-    list_milestones,
     list_donations,
     list_evidence,
     list_certificates,
 )
+from backend.app.api.v1.projects import discover_projects as list_projects
+from backend.app.api.v1.milestones import list_all_milestones as list_milestones
 from backend.app.api.schemas import StandardResponse, HealthResponse
 
 
@@ -37,16 +37,17 @@ def test_api_db_health_endpoint():
     assert response.data.get("database_connected") is True
 
 
-def test_api_foundational_endpoints():
+def test_api_foundational_endpoints(db_session):
     """Verify foundational domain endpoints return standard enveloped lists."""
-    endpoints = [
-        list_projects,
-        list_milestones,
-        list_donations,
-        list_evidence,
-        list_certificates,
-    ]
-    for fn in endpoints:
+    proj_resp = list_projects(db=db_session)
+    assert proj_resp.success is True
+    assert isinstance(proj_resp.data, list)
+
+    mile_resp = list_milestones(db=db_session)
+    assert mile_resp.success is True
+    assert isinstance(mile_resp.data, list)
+
+    for fn in [list_donations, list_evidence, list_certificates]:
         resp = fn()
         assert resp.success is True
         assert isinstance(resp.data, list)

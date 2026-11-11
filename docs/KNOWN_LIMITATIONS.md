@@ -26,11 +26,17 @@ This document maintains an accurate, truthful record of functionality that is cu
 - **Current Status**: Original prototype used simulated ETH numbers (e.g. `2.5 * 10^18`).
 - **Target (Phase 1 & Phase 4)**: Currency-safe data types (minor units in integer or Decimal), distinct lifecycle states for authorization, capture, void, refund, and payout via PayPal REST API.
 
-## 6. Identity, Email Delivery & Frontend Scope (Phase 2 Boundaries)
+## 6. Organization Onboarding & Project Management (Phase 3 Completed)
 - **Current Status**:
-  - Email tokens (verification and password recovery) are captured in an in-memory/log sink (`DevNotificationSink`) in development mode when external SMTP credentials are not configured, preventing startup blocks while avoiding mock token leakage.
-  - Organization creation and onboarding are stubbed for member invitations in Phase 2; full public NGO onboarding with verification documentation is scheduled for Phase 3.
-  - Streamlit authentication provides a transitional login/register interface using `AuthService`. The complete Next.js 14 frontend rebuild with enterprise cookie management and full reactive state occurs in Phase 12.
-- **Target**: Production SMTP/SES integration in Phase 10, Complete NGO Management in Phase 3, and full Next.js Frontend in Phase 12.
+  - Multi-tenant organization onboarding with legal data profiles, verification document uploads, and state machine transitions is fully implemented and tested.
+  - Multi-milestone project management with contiguous sequence numbers `1..N`, budget ceiling validation, GPS coordinate bounds, and a live 13-rule pre-submission checklist is fully functional.
+  - Independent reviewer queues for organizations and projects feature strict conflict-of-interest prevention.
+  - Streamlit transitional interface provides dedicated pages for NGO onboarding, project management, reviewer queue, and public discovery.
+- **Boundaries Preserved**:
+  - Real PayPal checkout flows and payment authorizations are deferred to Phase 4.
+  - General evidence file upload and management (beyond NGO registration documents) are deferred to Phase 5.
+  - Live AI verification of project milestone evidence is deferred to Phase 6.
+  - Automated escrow fund disbursement upon milestone verification is deferred to Phase 8.
+  - Complete Next.js frontend migration is scheduled for Phase 12.
 
 

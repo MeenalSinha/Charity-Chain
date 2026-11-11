@@ -73,14 +73,27 @@ def ai_verifier():
 
 
 @pytest.fixture
-def db_session():
-    """Provides a transactional SQLAlchemy session for testing."""
-    from backend.app.db.session import SessionFactory, engine
+def db_session(tmp_path):
+    """Provides a fresh isolated transactional SQLAlchemy session for testing."""
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
     from backend.app.db.base import Base
+    from backend.app.db.session import get_db_session
+    from backend.app.main import app
     import backend.app.db.models  # ensure models registered
-    Base.metadata.create_all(bind=engine)
-    session = SessionFactory()
+
+    test_db_file = tmp_path / "test_charity_sql.db"
+    test_engine = create_engine(f"sqlite:///{test_db_file}", connect_args={"check_same_thread": False})
+    Base.metadata.create_all(bind=test_engine)
+    TestSessionFactory = sessionmaker(bind=test_engine, autocommit=False, autoflush=False)
+    session = TestSessionFactory()
+
+    # Override FastAPI dependency for test execution
+    app.dependency_overrides[get_db_session] = lambda: session
+
     try:
         yield session
     finally:
         session.close()
+        test_engine.dispose()
+        app.dependency_overrides.pop(get_db_session, None)

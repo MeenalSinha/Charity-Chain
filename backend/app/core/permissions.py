@@ -69,6 +69,19 @@ def get_current_user(
     return user
 
 
+def get_current_user_optional(
+    token: Optional[str] = Depends(oauth2_scheme),
+    db: Session = Depends(get_db_session)
+) -> Optional[User]:
+    """Resolves authenticated user if valid token is provided; otherwise returns None."""
+    if not token:
+        return None
+    try:
+        return get_current_user(token=token, db=db)
+    except Exception:
+        return None
+
+
 def get_current_active_user(user: User = Depends(get_current_user)) -> User:
     """Ensures the authenticated user has verified email and an active account status."""
     if user.account_status == AccountStatus.PENDING_VERIFICATION or not user.is_verified:

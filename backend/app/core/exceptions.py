@@ -128,4 +128,6 @@ class ValidationException(CharityChainException):
 AuthenticationException = AuthenticationError
 ForbiddenException = PermissionDeniedError
 NotFoundException = EntityNotFoundError
+InvalidStateTransitionException = InvalidStateTransitionError
+UnauthorizedTransitionException = UnauthorizedTransitionError
 

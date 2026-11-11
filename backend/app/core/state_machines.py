@@ -5,30 +5,34 @@ Defines the permitted state transitions and authorized actor rules.
 Enforces business invariants and prevents arbitrary or unauthorized state changes.
 """
 
-from typing import Dict, Set, Tuple
+from typing import Dict, Set, Tuple, Optional, Union
 from backend.app.core.constants import (
     OrganizationStatus, ProjectStatus, MilestoneStatus,
     EvidenceStatus, PaymentOrderStatus, PaymentAuthorizationStatus,
     PaymentCaptureStatus, PaymentRefundStatus, DisbursementStatus,
-    UserRole
+    PlatformRole, OrganizationRole, UserRole
 )
 from backend.app.core.exceptions import InvalidStateTransitionError, UnauthorizedTransitionError
 
 
 # Permitted state transitions: CurrentState -> Set of Allowed Next States
 ORGANIZATION_TRANSITIONS: Dict[OrganizationStatus, Set[OrganizationStatus]] = {
-    OrganizationStatus.PENDING: {OrganizationStatus.UNDER_REVIEW, OrganizationStatus.REJECTED},
-    OrganizationStatus.UNDER_REVIEW: {OrganizationStatus.VERIFIED, OrganizationStatus.REJECTED},
+    OrganizationStatus.DRAFT: {OrganizationStatus.PENDING},
+    OrganizationStatus.PENDING: {OrganizationStatus.UNDER_REVIEW, OrganizationStatus.VERIFIED, OrganizationStatus.REJECTED, OrganizationStatus.REVISION_REQUIRED, OrganizationStatus.DRAFT},
+    OrganizationStatus.UNDER_REVIEW: {OrganizationStatus.VERIFIED, OrganizationStatus.REJECTED, OrganizationStatus.REVISION_REQUIRED},
+    OrganizationStatus.REVISION_REQUIRED: {OrganizationStatus.PENDING, OrganizationStatus.DRAFT},
     OrganizationStatus.VERIFIED: {OrganizationStatus.SUSPENDED},
-    OrganizationStatus.SUSPENDED: {OrganizationStatus.UNDER_REVIEW, OrganizationStatus.REJECTED},
-    OrganizationStatus.REJECTED: set(),  # Terminal state
+    OrganizationStatus.SUSPENDED: {OrganizationStatus.UNDER_REVIEW, OrganizationStatus.VERIFIED, OrganizationStatus.REJECTED},
+    OrganizationStatus.REJECTED: {OrganizationStatus.DRAFT},  # Resubmission allowed as draft
 }
 
 PROJECT_TRANSITIONS: Dict[ProjectStatus, Set[ProjectStatus]] = {
     ProjectStatus.DRAFT: {ProjectStatus.SUBMITTED},
-    ProjectStatus.SUBMITTED: {ProjectStatus.APPROVED, ProjectStatus.REJECTED},
+    ProjectStatus.SUBMITTED: {ProjectStatus.UNDER_REVIEW, ProjectStatus.APPROVED, ProjectStatus.REJECTED, ProjectStatus.REVISION_REQUIRED, ProjectStatus.DRAFT},
+    ProjectStatus.UNDER_REVIEW: {ProjectStatus.APPROVED, ProjectStatus.REVISION_REQUIRED, ProjectStatus.REJECTED},
+    ProjectStatus.REVISION_REQUIRED: {ProjectStatus.SUBMITTED, ProjectStatus.DRAFT},
     ProjectStatus.APPROVED: {ProjectStatus.ACTIVE, ProjectStatus.ARCHIVED},
-    ProjectStatus.ACTIVE: {ProjectStatus.PAUSED, ProjectStatus.COMPLETED},
+    ProjectStatus.ACTIVE: {ProjectStatus.PAUSED, ProjectStatus.COMPLETED, ProjectStatus.ARCHIVED},
     ProjectStatus.PAUSED: {ProjectStatus.ACTIVE, ProjectStatus.ARCHIVED},
     ProjectStatus.COMPLETED: {ProjectStatus.ARCHIVED},
     ProjectStatus.REJECTED: {ProjectStatus.DRAFT, ProjectStatus.ARCHIVED},
@@ -79,14 +83,80 @@ DISBURSEMENT_TRANSITIONS: Dict[DisbursementStatus, Set[DisbursementStatus]] = {
 }
 
 
+def _resolve_roles(
+    actor_platform_role: Optional[PlatformRole] = None,
+    actor_org_role: Optional[OrganizationRole] = None,
+    actor_role: Optional[Union[UserRole, PlatformRole, OrganizationRole, str]] = None
+) -> Tuple[Optional[PlatformRole], Optional[OrganizationRole]]:
+    """Resolves platform role and org role with backward compatibility for legacy UserRole."""
+    p_role = actor_platform_role
+    o_role = actor_org_role
+
+    if actor_role is not None:
+        role_str = actor_role.value if hasattr(actor_role, "value") else str(actor_role)
+        if role_str == "PLATFORM_ADMIN":
+            p_role = PlatformRole.PLATFORM_ADMIN
+        elif role_str == "REVIEWER":
+            p_role = PlatformRole.REVIEWER
+        elif role_str == "DONOR":
+            p_role = PlatformRole.DONOR
+        elif role_str in ("NGO_ADMIN", "OWNER"):
+            o_role = OrganizationRole.OWNER if role_str == "OWNER" else OrganizationRole.ADMIN
+        elif role_str in ("NGO_MEMBER", "MEMBER"):
+            o_role = OrganizationRole.MEMBER
+        elif role_str == "ADMIN":
+            o_role = OrganizationRole.ADMIN
+
+    return p_role, o_role
+
+
 class StateMachineValidator:
     """Validates lifecycle transitions and role permissions."""
+
+    @staticmethod
+    def validate_organization_transition(
+        current: OrganizationStatus,
+        target: OrganizationStatus,
+        actor_platform_role: Optional[PlatformRole] = None,
+        actor_org_role: Optional[OrganizationRole] = None,
+        actor_role: Optional[Union[UserRole, PlatformRole, OrganizationRole, str]] = None
+    ):
+        """Validates organization onboarding and verification transitions."""
+        allowed = ORGANIZATION_TRANSITIONS.get(current, set())
+        if target not in allowed:
+            raise InvalidStateTransitionError(
+                f"Invalid Organization transition from {current.value} to {target.value}. Allowed: {[s.value for s in allowed]}"
+            )
+
+        p_role, o_role = _resolve_roles(actor_platform_role, actor_org_role, actor_role)
+
+        # Organization owner/admin submits application
+        if target in {OrganizationStatus.PENDING, OrganizationStatus.DRAFT}:
+            is_authorized = (
+                p_role == PlatformRole.PLATFORM_ADMIN or
+                (o_role in {OrganizationRole.OWNER, OrganizationRole.ADMIN})
+            )
+            if not is_authorized:
+                raise UnauthorizedTransitionError(
+                    "Only organization Owners or Admins (or Platform Admins) can submit or draft organization verification."
+                )
+
+        # Reviewer / Platform Admin decisions
+        if target in {OrganizationStatus.UNDER_REVIEW, OrganizationStatus.VERIFIED, OrganizationStatus.REJECTED, OrganizationStatus.REVISION_REQUIRED, OrganizationStatus.SUSPENDED}:
+            if p_role not in {PlatformRole.REVIEWER, PlatformRole.PLATFORM_ADMIN}:
+                raise UnauthorizedTransitionError(
+                    f"Transition to {target.value} requires REVIEWER or PLATFORM_ADMIN platform privileges."
+                )
+
+        return True
 
     @staticmethod
     def validate_milestone_transition(
         current: MilestoneStatus,
         target: MilestoneStatus,
-        actor_role: UserRole
+        actor_platform_role: Optional[PlatformRole] = None,
+        actor_org_role: Optional[OrganizationRole] = None,
+        actor_role: Optional[Union[UserRole, PlatformRole, OrganizationRole, str]] = None
     ):
         allowed = MILESTONE_TRANSITIONS.get(current, set())
         if target not in allowed:
@@ -94,35 +164,61 @@ class StateMachineValidator:
                 f"Invalid Milestone transition from {current.value} to {target.value}. Allowed: {[s.value for s in allowed]}"
             )
         
-        # Role-based transition permissions:
+        p_role, o_role = _resolve_roles(actor_platform_role, actor_org_role, actor_role)
+
         # Only REVIEWER or PLATFORM_ADMIN can approve, complete, or request revision after review
         if target in {MilestoneStatus.APPROVED, MilestoneStatus.COMPLETED, MilestoneStatus.REJECTED, MilestoneStatus.REVISION_REQUIRED}:
-            if actor_role not in {UserRole.REVIEWER, UserRole.PLATFORM_ADMIN}:
+            if p_role not in {PlatformRole.REVIEWER, PlatformRole.PLATFORM_ADMIN}:
                 raise UnauthorizedTransitionError(
-                    f"Role {actor_role.value} is not authorized to transition Milestone to {target.value}. Requires REVIEWER or PLATFORM_ADMIN."
+                    f"Transition to {target.value} requires REVIEWER or PLATFORM_ADMIN."
                 )
         
-        # Only NGO_ADMIN or PLATFORM_ADMIN can submit or draft
-        if target in {MilestoneStatus.SUBMITTED, MilestoneStatus.EVIDENCE_SUBMITTED}:
-            if actor_role not in {UserRole.NGO_ADMIN, UserRole.NGO_MEMBER, UserRole.PLATFORM_ADMIN}:
+        # Only NGO member/admin/owner or PLATFORM_ADMIN can submit milestone or evidence
+        if target in {MilestoneStatus.SUBMITTED, MilestoneStatus.EVIDENCE_SUBMITTED, MilestoneStatus.DRAFT}:
+            is_authorized = (
+                p_role == PlatformRole.PLATFORM_ADMIN or
+                (o_role in {OrganizationRole.OWNER, OrganizationRole.ADMIN, OrganizationRole.MEMBER})
+            )
+            if not is_authorized:
                 raise UnauthorizedTransitionError(
-                    f"Role {actor_role.value} is not authorized to submit milestone or evidence."
+                    "Only organization members (or Platform Admins) are authorized to submit milestone or evidence."
                 )
+
+        return True
 
     @staticmethod
     def validate_project_transition(
         current: ProjectStatus,
         target: ProjectStatus,
-        actor_role: UserRole
+        actor_platform_role: Optional[PlatformRole] = None,
+        actor_org_role: Optional[OrganizationRole] = None,
+        actor_role: Optional[Union[UserRole, PlatformRole, OrganizationRole, str]] = None
     ):
         allowed = PROJECT_TRANSITIONS.get(current, set())
         if target not in allowed:
             raise InvalidStateTransitionError(
                 f"Invalid Project transition from {current.value} to {target.value}. Allowed: {[s.value for s in allowed]}"
             )
-        if target in {ProjectStatus.APPROVED, ProjectStatus.REJECTED}:
-            if actor_role not in {UserRole.REVIEWER, UserRole.PLATFORM_ADMIN}:
+        
+        p_role, o_role = _resolve_roles(actor_platform_role, actor_org_role, actor_role)
+
+        # Reviewer or Platform Admin approves, rejects, requests revision, or moves to under review
+        if target in {ProjectStatus.APPROVED, ProjectStatus.REJECTED, ProjectStatus.REVISION_REQUIRED, ProjectStatus.UNDER_REVIEW}:
+            if p_role not in {PlatformRole.REVIEWER, PlatformRole.PLATFORM_ADMIN}:
                 raise UnauthorizedTransitionError(
-                    f"Role {actor_role.value} cannot approve/reject projects."
+                    f"Transition to {target.value} requires REVIEWER or PLATFORM_ADMIN."
                 )
+
+        # Organization Owner/Admin submits, activates, pauses, or archives
+        if target in {ProjectStatus.SUBMITTED, ProjectStatus.ACTIVE, ProjectStatus.PAUSED, ProjectStatus.COMPLETED, ProjectStatus.DRAFT}:
+            is_authorized = (
+                p_role == PlatformRole.PLATFORM_ADMIN or
+                (o_role in {OrganizationRole.OWNER, OrganizationRole.ADMIN})
+            )
+            if not is_authorized:
+                raise UnauthorizedTransitionError(
+                    f"Transition to {target.value} requires organization OWNER or ADMIN."
+                )
+
+        return True
 

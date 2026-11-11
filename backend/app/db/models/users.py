@@ -14,7 +14,8 @@ from sqlalchemy.orm import relationship
 from backend.app.db.base import Base
 from backend.app.core.constants import (
     PlatformRole, OrganizationRole, OrganizationStatus,
-    AccountStatus, InvitationStatus
+    AccountStatus, InvitationStatus, OrganizationType,
+    OrganizationDocumentType, DocumentReviewStatus, DocumentAccessClassification
 )
 
 
@@ -119,16 +120,76 @@ class Organization(Base):
     __tablename__ = "organizations"
 
     name = Column(String(255), unique=True, nullable=False, index=True)
+    legal_name = Column(String(255), nullable=True)
+    display_name = Column(String(255), nullable=True)
+    description = Column(Text, nullable=True)
+    organization_type = Column(SQLEnum(OrganizationType), default=OrganizationType.NON_PROFIT, nullable=False)
+    
+    # Legal & Registration
     registration_number = Column(String(100), unique=True, nullable=True)
+    registration_authority = Column(String(255), nullable=True)
+    registration_date = Column(DateTime, nullable=True)
     tax_id = Column(String(100), nullable=True)
-    status = Column(SQLEnum(OrganizationStatus), default=OrganizationStatus.PENDING, nullable=False)
-    website = Column(String(255), nullable=True)
+    classification = Column(String(100), nullable=True)
+    registered_address = Column(Text, nullable=True)
+    operating_address = Column(Text, nullable=True)
     country = Column(String(3), nullable=False, default="USA")
+    
+    # Official Contacts
+    official_email = Column(String(255), nullable=True)
+    official_phone = Column(String(32), nullable=True)
+    website = Column(String(255), nullable=True)
 
+    # Mission & Operations
+    mission_statement = Column(Text, nullable=True)
+    vision = Column(Text, nullable=True)
+    focus_areas = Column(Text, nullable=True)  # JSON-encoded array of focus strings
+    operating_regions = Column(Text, nullable=True)  # JSON-encoded array
+    beneficiary_categories = Column(Text, nullable=True)  # JSON-encoded array
+    years_of_operation = Column(Integer, default=0, nullable=False)
+
+    # Verification Lifecycle
+    status = Column(SQLEnum(OrganizationStatus), default=OrganizationStatus.DRAFT, nullable=False, index=True)
+    submitted_at = Column(DateTime, nullable=True)
+    verified_at = Column(DateTime, nullable=True)
+    reviewer_id = Column(String(36), ForeignKey("users.id"), nullable=True)
+    rejection_reason = Column(Text, nullable=True)
+    suspension_reason = Column(Text, nullable=True)
+    revision_notes = Column(Text, nullable=True)
+
+    # Relationships
     memberships = relationship("OrganizationMembership", back_populates="organization", cascade="all, delete-orphan")
     invitations = relationship("OrganizationInvitation", back_populates="organization", cascade="all, delete-orphan")
+    documents = relationship("OrganizationDocument", back_populates="organization", cascade="all, delete-orphan")
     ngo_profile = relationship("NGOProfile", back_populates="organization", uselist=False, cascade="all, delete-orphan")
     projects = relationship("Project", back_populates="organization")
+    reviewer = relationship("User", foreign_keys=[reviewer_id])
+
+
+class OrganizationDocument(Base):
+    """Secure document storage for organization onboarding and verification."""
+    __tablename__ = "organization_documents"
+
+    organization_id = Column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    document_type = Column(SQLEnum(OrganizationDocumentType), nullable=False)
+    original_filename = Column(String(255), nullable=False)
+    storage_filename = Column(String(255), nullable=False)
+    storage_path = Column(String(512), nullable=False)
+    mime_type = Column(String(100), nullable=False)
+    file_size_bytes = Column(Integer, nullable=False)
+    file_hash_sha256 = Column(String(64), nullable=False, index=True)
+    uploaded_by_id = Column(String(36), ForeignKey("users.id"), nullable=False)
+    version_number = Column(Integer, default=1, nullable=False)
+    expires_at = Column(DateTime, nullable=True)
+    review_status = Column(SQLEnum(DocumentReviewStatus), default=DocumentReviewStatus.PENDING, nullable=False)
+    reviewer_id = Column(String(36), ForeignKey("users.id"), nullable=True)
+    reviewer_comments = Column(Text, nullable=True)
+    access_classification = Column(SQLEnum(DocumentAccessClassification), default=DocumentAccessClassification.CONFIDENTIAL, nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+
+    organization = relationship("Organization", back_populates="documents")
+    uploaded_by = relationship("User", foreign_keys=[uploaded_by_id])
+    reviewer = relationship("User", foreign_keys=[reviewer_id])
 
 
 class OrganizationMembership(Base):

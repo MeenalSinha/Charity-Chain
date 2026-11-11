@@ -85,3 +85,36 @@
    - Added real Sign In and Register tabs connected to `AuthService` and persistent database session factory.
 8. **Automated Verification Expansion**:
    - Expanded test suite from 50 to 78 tests across unit, integration, functional, and security tiers, achieving 100% pass rate (78 passed in 5.01s).
+
+
+## 2026-11-11: Phase 3 Organization Onboarding, NGO Verification & Project Management Implemented
+
+### Architectural Decisions & Implementations
+1. **Multi-Tenant Legal Organization Onboarding**:
+   - Expanded `Organization` model with compliance fields: `legal_name`, `registration_authority`, `country`, `registered_address`, `mission_statement`, `focus_areas`.
+   - Designed atomic registration flow that provisions the organization and binds the creator as `OWNER`.
+   - Created `OrganizationDocument` model for tracking verification filings with SHA-256 hashes and MIME verification.
+2. **High-Assurance Document Storage (`LocalStorageProvider`)**:
+   - Implemented binary magic byte inspection for `application/pdf`, `image/png`, and `image/jpeg`.
+   - Enforced 10MB maximum file size ceiling.
+   - Implemented path traversal prevention rejecting payloads targeting parent directories or system paths.
+3. **Conflict of Interest Prevention**:
+   - Reviewers holding an active role in an organization are strictly blocked from reviewing or deciding on that organization or its projects (`ForbiddenException`).
+4. **Multi-Milestone Project Management**:
+   - Replaced empty API placeholders in `backend/app/api/v1/projects.py` and `backend/app/api/v1/milestones.py` with full domain services (`ProjectService`).
+   - Implemented database constraint `uq_milestone_project_seq` and enforced contiguous `1..N` sequence numbering.
+   - Enforced budget allocation invariants: total milestone funding targets cannot exceed the project target ceiling.
+5. **13-Rule Pre-Submission Live Validation Engine**:
+   - Built pre-submission checklist in `ProjectService.validate_project_submission` covering organization verification, title/summary lengths, budget matching, sequence contiguity, deliverables, and GPS bounds.
+   - Exposed `/api/v1/projects/{id}/validation` for real-time diagnostics before submission.
+6. **Public Project Discovery Engine**:
+   - Implemented `GET /api/v1/projects` with strict multi-factor visibility filters: `Project.status == ACTIVE`, `Project.public_visibility == PUBLIC`, `Organization.status == VERIFIED`, `Project.is_archived == False`.
+   - Added support for keyword search, category filtering, country filtering, and pagination.
+7. **Streamlit UI Expansion**:
+   - Added dedicated pages in `app_ui.py`: Organization Onboarding, Project Management (with live 13-rule checklist), Reviewer Queue, and Discover Projects.
+   - Maintained full backward compatibility with original Streamlit routes and TinyDB milestones.
+8. **Database Schema & Alembic Migration**:
+   - Generated migration `003_phase3_org_and_projects.py` with fully reversible `upgrade()` and `downgrade()` logic.
+9. **Comprehensive Automated Testing**:
+   - Expanded test suite from 78 to 107 tests across unit, integration, security, and functional layers.
+   - 107 passed in 35.35s (100% pass rate).

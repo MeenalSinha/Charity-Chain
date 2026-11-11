@@ -62,18 +62,64 @@ class UserRole(str, Enum):
     PLATFORM_ADMIN = "PLATFORM_ADMIN"
 
 
+class OrganizationType(str, Enum):
+    """Legal classifications for nonprofit organizations."""
+    NON_PROFIT = "NON_PROFIT"
+    CHARITY = "CHARITY"
+    FOUNDATION = "FOUNDATION"
+    NGO = "NGO"
+    TRUST = "TRUST"
+    SOCIAL_ENTERPRISE = "SOCIAL_ENTERPRISE"
+    OTHER = "OTHER"
+
+
 class OrganizationStatus(str, Enum):
+    DRAFT = "DRAFT"
     PENDING = "PENDING"
     UNDER_REVIEW = "UNDER_REVIEW"
+    REVISION_REQUIRED = "REVISION_REQUIRED"
     VERIFIED = "VERIFIED"
     REJECTED = "REJECTED"
     SUSPENDED = "SUSPENDED"
 
 
+class OrganizationDocumentType(str, Enum):
+    """Supported onboarding verification document categories."""
+    REGISTRATION_CERTIFICATE = "REGISTRATION_CERTIFICATE"
+    TAX_EXEMPTION_CERTIFICATE = "TAX_EXEMPTION_CERTIFICATE"
+    NONPROFIT_STATUS_DOCUMENTATION = "NONPROFIT_STATUS_DOCUMENTATION"
+    GOVERNING_DOCUMENTS = "GOVERNING_DOCUMENTS"
+    ADDRESS_VERIFICATION = "ADDRESS_VERIFICATION"
+    AUTHORIZED_REPRESENTATIVE_DOCUMENTATION = "AUTHORIZED_REPRESENTATIVE_DOCUMENTATION"
+    OTHER_SUPPORTING_DOCUMENTS = "OTHER_SUPPORTING_DOCUMENTS"
+
+
+class DocumentReviewStatus(str, Enum):
+    """Review status for verification documents."""
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+    REVISION_REQUIRED = "REVISION_REQUIRED"
+
+
+class DocumentAccessClassification(str, Enum):
+    """Access classification for stored documents."""
+    CONFIDENTIAL = "CONFIDENTIAL"
+    RESTRICTED = "RESTRICTED"
+
+
+class ProjectVisibility(str, Enum):
+    """Visibility scope for charitable projects."""
+    PUBLIC = "PUBLIC"
+    PRIVATE = "PRIVATE"
+
+
 class ProjectStatus(str, Enum):
     DRAFT = "DRAFT"
     SUBMITTED = "SUBMITTED"
+    UNDER_REVIEW = "UNDER_REVIEW"
     APPROVED = "APPROVED"
+    REVISION_REQUIRED = "REVISION_REQUIRED"
     ACTIVE = "ACTIVE"
     PAUSED = "PAUSED"
     COMPLETED = "COMPLETED"

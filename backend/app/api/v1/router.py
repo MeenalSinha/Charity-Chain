@@ -14,14 +14,20 @@ from backend.app.api.v1.auth import router as auth_router
 from backend.app.api.v1.users import router as users_router
 from backend.app.api.v1.organizations import router as orgs_router
 from backend.app.api.v1.admin import router as admin_router
+from backend.app.api.v1.projects import router as projects_router
+from backend.app.api.v1.milestones import router as milestones_router
+from backend.app.api.v1.categories import router as categories_router
 
 api_v1_router = APIRouter(prefix=settings.API_PREFIX)
 
-# Mount Phase 2 Authentication, Identity & Access Control sub-routers
+# Mount Domain Sub-Routers
 api_v1_router.include_router(auth_router)
 api_v1_router.include_router(users_router)
 api_v1_router.include_router(orgs_router)
 api_v1_router.include_router(admin_router)
+api_v1_router.include_router(projects_router)
+api_v1_router.include_router(milestones_router)
+api_v1_router.include_router(categories_router)
 
 
 @api_v1_router.get(
@@ -62,17 +68,7 @@ def get_db_health():
     )
 
 
-# Foundational contract endpoints (Phases 2-11 implement business services)
-@api_v1_router.get("/projects", tags=["Projects"])
-def list_projects():
-    return StandardResponse(data=[], correlation_id=correlation_id_ctx.get(), message="Projects service contract")
-
-
-@api_v1_router.get("/milestones", tags=["Milestones"])
-def list_milestones():
-    return StandardResponse(data=[], correlation_id=correlation_id_ctx.get(), message="Milestones service contract")
-
-
+# Foundational contract endpoints (Phases 4-11 implement business services)
 @api_v1_router.get("/donations", tags=["Donations"])
 def list_donations():
     return StandardResponse(data=[], correlation_id=correlation_id_ctx.get(), message="Donations service contract")

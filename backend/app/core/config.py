@@ -73,11 +73,22 @@ class Settings(BaseSettings):
         default=Path("data/evidence"),
         description="Local directory for evidence storage"
     )
+    STORAGE_DOCUMENTS_DIR: Path = Field(
+        default=Path("data/documents"),
+        description="Local directory for NGO verification documents"
+    )
     MAX_UPLOAD_SIZE_MB: float = Field(default=10.0, description="Max upload size in MB")
+    MAX_DOCUMENT_SIZE_MB: float = Field(default=10.0, description="Max document upload size in MB")
     ALLOWED_MIME_TYPES: List[str] = Field(
         default=["image/jpeg", "image/png", "application/pdf"],
         description="Permitted upload MIME types"
     )
+    ALLOWED_DOCUMENT_MIME_TYPES: List[str] = Field(
+        default=["application/pdf", "image/jpeg", "image/png"],
+        description="Permitted organization onboarding document MIME types"
+    )
+    DEFAULT_PAGE_SIZE: int = Field(default=20, description="Default pagination page size")
+    MAX_PAGE_SIZE: int = Field(default=100, description="Maximum pagination page size")
     
     # S3 / MinIO Configuration (Phase 5)
     S3_ENDPOINT_URL: Optional[str] = Field(default=None, description="S3 / MinIO custom endpoint")
