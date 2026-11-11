@@ -104,3 +104,4 @@ During project pre-submission evaluation (`ProjectService.validate_project_submi
 5. **`INVALID_COORDINATES`**: If target coordinates are supplied, they must be valid numeric degrees within standard limits.
 
 Any failure prevents project submission and returns an actionable diagnostics report with field-level error messages to the NGO dashboard.
+

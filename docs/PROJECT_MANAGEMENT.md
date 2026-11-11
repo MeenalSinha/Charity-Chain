@@ -92,3 +92,4 @@ Projects are discovered through `ProjectService.discover_projects` (`GET /projec
   - Country of operation (ISO-2 / ISO-3).
   - Target budget bounds (`min_target`, `max_target`).
   - Standard pagination with metadata (`page`, `page_size`, `total_items`, `total_pages`).
+

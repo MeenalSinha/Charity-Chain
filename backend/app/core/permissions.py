@@ -82,6 +82,10 @@ def get_current_user_optional(
         return None
 
 
+get_optional_current_user = get_current_user_optional
+
+
+
 def get_current_active_user(user: User = Depends(get_current_user)) -> User:
     """Ensures the authenticated user has verified email and an active account status."""
     if user.account_status == AccountStatus.PENDING_VERIFICATION or not user.is_verified:

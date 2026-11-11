@@ -41,6 +41,10 @@ def get_db_session() -> Generator[Session, None, None]:
         session.close()
 
 
+get_db = get_db_session
+
+
+
 def check_db_connection() -> bool:
     """Verifies that the database engine can execute queries and ping the server."""
     try:

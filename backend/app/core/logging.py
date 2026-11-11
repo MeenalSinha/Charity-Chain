@@ -77,3 +77,11 @@ def setup_logging(log_level: str = "INFO", log_format: str = "json") -> logging.
 
 logger = setup_logging()
 
+
+def get_logger(name: str = "charitychain") -> logging.Logger:
+    """Helper to return named logger under the charitychain root hierarchy."""
+    if name == "charitychain" or name.startswith("charitychain."):
+        return logging.getLogger(name)
+    return logging.getLogger(f"charitychain.{name}")
+
+

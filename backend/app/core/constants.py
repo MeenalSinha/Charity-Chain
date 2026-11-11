@@ -157,6 +157,34 @@ class VerificationCheckStatus(str, Enum):
     PENDING = "PENDING"
 
 
+class DonationStatus(str, Enum):
+    """Centralized lifecycle states for a charitable donation intent."""
+    CREATED = "CREATED"
+    PAYMENT_PENDING = "PAYMENT_PENDING"
+    PAID = "PAID"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
+    PARTIALLY_REFUNDED = "PARTIALLY_REFUNDED"
+    REFUNDED = "REFUNDED"
+
+
+class WebhookProcessingStatus(str, Enum):
+    """Lifecycle status for persisted incoming payment webhooks."""
+    PENDING = "PENDING"
+    PROCESSED = "PROCESSED"
+    DUPLICATE = "DUPLICATE"
+    FAILED = "FAILED"
+    IGNORED = "IGNORED"
+
+
+class WebhookSignatureStatus(str, Enum):
+    """Cryptographic signature validation status of payment webhooks."""
+    PENDING = "PENDING"
+    VERIFIED = "VERIFIED"
+    FAILED = "FAILED"
+    SKIPPED = "SKIPPED"
+
+
 class PaymentOrderStatus(str, Enum):
     CREATED = "CREATED"
     SAVED = "SAVED"

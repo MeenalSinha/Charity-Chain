@@ -78,7 +78,7 @@ def db_session(tmp_path):
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
     from backend.app.db.base import Base
-    from backend.app.db.session import get_db_session
+    from backend.app.db.session import get_db_session, get_db
     from backend.app.main import app
     import backend.app.db.models  # ensure models registered
 
@@ -90,6 +90,7 @@ def db_session(tmp_path):
 
     # Override FastAPI dependency for test execution
     app.dependency_overrides[get_db_session] = lambda: session
+    app.dependency_overrides[get_db] = lambda: session
 
     try:
         yield session
@@ -97,3 +98,4 @@ def db_session(tmp_path):
         session.close()
         test_engine.dispose()
         app.dependency_overrides.pop(get_db_session, None)
+        app.dependency_overrides.pop(get_db, None)

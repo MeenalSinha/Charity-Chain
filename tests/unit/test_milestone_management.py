@@ -75,3 +75,4 @@ def test_milestone_negative_funding_target():
             funding_target_minor=-500,  # Invalid
             currency="USD"
         )
+

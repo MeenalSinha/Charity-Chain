@@ -9,7 +9,10 @@ from backend.app.db.models.users import (
     OrganizationDocument
 )
 from backend.app.db.models.projects import ProjectCategory, Project, Milestone, ProjectLocation
-from backend.app.db.models.financial import Donation, PaymentOrder, PaymentAuthorization, PaymentCapture, PaymentRefund, Disbursement
+from backend.app.db.models.financial import (
+    Donation, PaymentOrder, PaymentAuthorization, PaymentCapture,
+    PaymentRefund, WebhookEvent, Disbursement
+)
 from backend.app.db.models.evidence import EvidenceFile, VerificationReport, VerificationCheckRecord
 from backend.app.db.models.reviews_impact import ReviewTask, ReviewDecisionRecord, ImpactCertificate, AuditEvent
 
@@ -34,6 +37,7 @@ __all__ = [
     "PaymentAuthorization",
     "PaymentCapture",
     "PaymentRefund",
+    "WebhookEvent",
     "Disbursement",
     "EvidenceFile",
     "VerificationReport",

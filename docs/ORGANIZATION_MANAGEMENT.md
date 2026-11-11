@@ -99,3 +99,4 @@ stateDiagram-v2
 3. **Submission**: Owner calls `submit_verification`. Status transitions to `PENDING`.
 4. **Review**: Independent reviewer inspects queue and decides (`VERIFIED`, `REVISION_REQUIRED`, or `REJECTED`).
 5. **Project Capability**: Only `VERIFIED` organizations are permitted to have projects submitted and activated for public discovery.
+

@@ -17,6 +17,11 @@ from backend.app.api.v1.admin import router as admin_router
 from backend.app.api.v1.projects import router as projects_router
 from backend.app.api.v1.milestones import router as milestones_router
 from backend.app.api.v1.categories import router as categories_router
+from backend.app.api.v1.donations import router as donations_router
+from backend.app.api.v1.payments import router as payments_router
+from backend.app.api.v1.refunds import router as refunds_router
+from backend.app.api.v1.webhooks import router as webhooks_router
+from backend.app.api.v1.funding import router as funding_router
 
 api_v1_router = APIRouter(prefix=settings.API_PREFIX)
 
@@ -28,6 +33,11 @@ api_v1_router.include_router(admin_router)
 api_v1_router.include_router(projects_router)
 api_v1_router.include_router(milestones_router)
 api_v1_router.include_router(categories_router)
+api_v1_router.include_router(donations_router)
+api_v1_router.include_router(payments_router)
+api_v1_router.include_router(refunds_router)
+api_v1_router.include_router(webhooks_router)
+api_v1_router.include_router(funding_router)
 
 
 @api_v1_router.get(

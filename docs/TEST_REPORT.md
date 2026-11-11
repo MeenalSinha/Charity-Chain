@@ -6,11 +6,11 @@
 
 ## 1. Test Execution Summary
 
-- **Total Test Cases**: 107
-- **Passed**: 107 (100%)
+- **Total Test Cases**: 133
+- **Passed**: 133 (100%)
 - **Failed**: 0 (0%)
 - **Skipped / Warnings**: 0
-- **Execution Time**: ~35.3 seconds
+- **Execution Time**: ~73.2 seconds
 - **Platform**: Windows 11 / Python 3.14.2 / pytest 8.2.2 / pluggy 1.6.0
 - **Test Command**: `python -m pytest tests/`
 
@@ -18,21 +18,22 @@
 
 ## 2. Test Execution Breakdown by Category
 
-### Phase 3 Test Summary
-Detailed Phase 3 organization onboarding, NGO verification, multi-milestone project management, and reviewer authorization testing is comprehensively documented in [`docs/PHASE_3_TEST_REPORT.md`](file:///c:/Users/Meenal%20Sinha/Downloads/Charity-Chain/docs/PHASE_3_TEST_REPORT.md).
-- **Unit Tests**: 12 new tests (organization state machine, document validation, project state machine, milestone contiguity, budget ceilings, GPS coordinate validation).
-- **Integration Tests**: 8 new tests (organization onboarding flow, document upload requirements, project & milestone CRUD, 13-rule pre-submission checklist, public project discovery and visibility filters).
-- **Security Tests**: 8 new tests (multi-tenant data isolation, cross-organization tampering prevention, path traversal defense, reviewer queue access control, reviewer conflict-of-interest prevention).
-- **Functional Tests**: 1 new comprehensive end-to-end test (full 10-step NGO onboarding, project definition, 13-rule validation, reviewer approval, activation, and public discovery).
+### Phase 4 Test Summary
+Detailed Phase 4 PayPal Payment Gateway Integration, donation intent creation, payment capture, webhook signature verification, refund management, and financial data integrity testing is comprehensively documented in [`docs/PHASE_4_TEST_REPORT.md`](file:///c:/Users/Meenal%20Sinha/Downloads/Charity-Chain/docs/PHASE_4_TEST_REPORT.md).
+- **Unit Tests**: 11 new tests (PayPal OAuth caching, order formatting & scaling, payment state machines, funding calculations).
+- **Integration Tests**: 11 new tests (donation intent creation, payment capture & idempotency, webhook processing & deduplication, refund workflows).
+- **Security Tests**: 3 new tests (cross-donor capture prevention, cross-donor refund prevention, currency manipulation defense).
+- **Functional Tests**: 1 new comprehensive end-to-end test (full 10-step donation discovery, selection, PayPal order, checkout approval, backend capture, webhook reconciliation, portfolio view, and partial refund).
 
-### Complete Suite Breakdown (107 Tests)
+### Complete Suite Breakdown (133 Tests)
 
 | Category | Tests | Status |
 |:---|:---:|:---:|
 | **Phase 0 & Phase 1 Baseline Tests** | 50 | **PASSED** |
 | **Phase 2 Identity & Authentication Tests** | 28 | **PASSED** |
 | **Phase 3 Organization & Project Tests** | 29 | **PASSED** |
-| **TOTAL** | **107** | **100% PASSED** |
+| **Phase 4 Payment Gateway & Donation Tests** | 26 | **PASSED** |
+| **TOTAL** | **133** | **100% PASSED** |
 
 ---
 

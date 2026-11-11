@@ -118,3 +118,47 @@
 9. **Comprehensive Automated Testing**:
    - Expanded test suite from 78 to 107 tests across unit, integration, security, and functional layers.
    - 107 passed in 35.35s (100% pass rate).
+
+---
+
+## Phase 4: PayPal Payment Gateway Integration & Donation Processing
+
+**Date**: 2026-11-11  
+**Status**: COMPLETED (133/133 tests passing)
+
+### Architectural Decisions & Changes
+1. **Payment Provider Abstraction**:
+   - Implemented `PaymentProviderInterface` in `backend/app/integrations/payments/base.py`.
+   - Created `PayPalPaymentProvider` (`backend/app/integrations/payments/paypal.py`) communicating with PayPal Orders v2 and Payments v2.
+   - Built `MockPayPalProvider` (`tests/mocks/paypal_mock.py`) for deterministic test execution.
+2. **OAuth 2.0 Token Management**:
+   - Acquired client credentials Bearer tokens via `POST /v1/oauth2/token`.
+   - Cached in memory with configurable safety buffer `OAUTH_TOKEN_CACHE_TTL_SECONDS`.
+   - Synchronized token renewal with `threading.Lock()` to prevent race conditions.
+3. **Intent CAPTURE Implementation**:
+   - Configured PayPal Orders v2 with `intent=CAPTURE` and purchase units linked to unique donation UUIDs.
+   - Enforced immediate capture rather than long-lived authorizations to eliminate authorization fee overhead and 29-day expiration hazards.
+4. **Server-Side Validation Engine**:
+   - Enforced project archive status, active status, public visibility, NGO verification, milestone status, currency matching, and min/max monetary bounds ($1.00 to $100,000.00).
+5. **Idempotent Payment Capture**:
+   - Implemented `DonationService.capture_donation_payment()` validating PayPal order state (`APPROVED`/`COMPLETED`) and matching amounts before persisting `PaymentCapture`.
+   - Prevented double-capture and double-counting of raised funds on repeated calls.
+6. **Cryptographic Webhook Signature Verification**:
+   - Implemented `POST /api/v1/webhooks/paypal` calling PayPal's verification API.
+   - Enforced event deduplication using the `webhook_events` table (`event_id UNIQUE`).
+   - Implemented automatic payment capture on `CHECKOUT.ORDER.APPROVED` for donors who drop off before returning.
+7. **Full & Partial Refund Management**:
+   - Implemented `DonationService.process_refund()` executing via PayPal Payments v2 Refund API.
+   - Enforced remaining refundable balance ceiling (`capture_amount - sum(completed_refunds)`).
+   - Decremented target milestone and project raised funding totals in real time.
+8. **Financial Data Integrity**:
+   - All financial operations executed strictly in integer minor units via `Money` value object.
+   - Provided real-time funding summaries (`captures - refunds`).
+   - Kept captured funds in platform holding accounts and deferred NGO disbursements to Phase 8.
+9. **Streamlit UI Integration**:
+   - Enhanced Project Discovery page with milestone contribution selectors and PayPal approval links.
+   - Added Donor Dashboard with KPI cards, donation history, and interactive refund request forms.
+10. **Database Migration**:
+   - Authored Alembic migration `004_phase4_payment_and_donations.py` modifying donations, payment orders, captures, refunds, and creating `webhook_events`.
+11. **Comprehensive Automated Testing**:
+   - Added 10 new test suites (26 tests). All 133 tests passing with 0 failures, 0 errors.

@@ -145,3 +145,4 @@ def test_cross_org_milestone_injection_denied(db_session, multi_org_setup):
     )
     with pytest.raises(ForbiddenException):
         ProjectService.create_milestone(db_session, proj_b, m_req, user_a)
+

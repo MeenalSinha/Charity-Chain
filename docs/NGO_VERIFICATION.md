@@ -96,3 +96,4 @@ Reviewers execute decisions via `POST /admin/organizations/{id}/decision`:
 Platform Administrators maintain governance controls to protect donors against bad actors:
 - **Suspension (`POST /admin/organizations/{id}/suspend`)**: Immediately sets status to `SUSPENDED` with mandatory justification. All linked projects are hidden from public discovery.
 - **Reactivation (`POST /admin/organizations/{id}/reactivate`)**: Reinstates a resolved organization back to `VERIFIED` status upon corrective actions.
+

@@ -1,0 +1,3 @@
+"""
+tests root package
+"""

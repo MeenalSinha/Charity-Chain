@@ -214,3 +214,104 @@ def review_project_decision(
         correlation_id=correlation_id_ctx.get()
     )
 
+
+# ============================================================================
+# PHASE 4 ADMINISTRATIVE PAYMENT & RECONCILIATION ENDPOINTS
+# ============================================================================
+
+from backend.app.db.models.financial import PaymentOrder, PaymentCapture, PaymentRefund, WebhookEvent, Donation
+from backend.app.core.constants import PaymentCaptureStatus, PaymentRefundStatus, PaymentOrderStatus
+from sqlalchemy import select, func
+
+
+@router.get("/payments", response_model=PaginatedResponse)
+def list_admin_payments(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    current_admin: User = Depends(require_platform_role(PlatformRole.PLATFORM_ADMIN)),
+    db: Session = Depends(get_db_session)
+):
+    """Platform administrator overview of all payment orders, captures, and statuses."""
+    offset = (page - 1) * page_size
+    total = db.execute(select(func.count(PaymentOrder.id))).scalar() or 0
+    orders = db.execute(
+        select(PaymentOrder).order_by(PaymentOrder.created_at.desc()).offset(offset).limit(page_size)
+    ).scalars().all()
+
+    data = []
+    for o in orders:
+        capture = db.execute(select(PaymentCapture).where(PaymentCapture.order_id == o.id)).scalar_one_or_none()
+        donation = db.execute(select(Donation).where(Donation.id == o.donation_id)).scalar_one_or_none()
+        data.append({
+            "order_id": o.id,
+            "donation_id": o.donation_id,
+            "provider": o.provider,
+            "provider_order_id": o.provider_order_id,
+            "amount_minor_units": o.amount_minor_units,
+            "currency": o.currency,
+            "status": o.status.value,
+            "capture_id": capture.id if capture else None,
+            "provider_capture_id": capture.provider_capture_id if capture else None,
+            "captured_at": capture.captured_at if capture else None,
+            "donor_email": donation.donor_email if donation else None,
+            "created_at": o.created_at
+        })
+
+    total_pages = (total + page_size - 1) // page_size if total > 0 else 1
+    return PaginatedResponse(
+        data=data,
+        pagination=PaginationMeta(
+            page=page,
+            page_size=page_size,
+            total_items=total,
+            total_pages=total_pages,
+            has_next=page < total_pages,
+            has_prev=page > 1
+        )
+    )
+
+
+@router.get("/payment-reconciliation", response_model=StandardResponse)
+def get_payment_reconciliation(
+    current_admin: User = Depends(require_platform_role(PlatformRole.PLATFORM_ADMIN)),
+    db: Session = Depends(get_db_session)
+):
+    """
+    Platform-wide financial reconciliation:
+    Calculates total gross captures, total refunds, net platform balance,
+    and webhook event health metrics.
+    """
+    total_captured = db.execute(
+        select(func.coalesce(func.sum(PaymentCapture.amount_minor_units), 0))
+        .where(PaymentCapture.status.in_([
+            PaymentCaptureStatus.COMPLETED,
+            PaymentCaptureStatus.PARTIALLY_REFUNDED,
+            PaymentCaptureStatus.REFUNDED
+        ]))
+    ).scalar() or 0
+
+    total_refunded = db.execute(
+        select(func.coalesce(func.sum(PaymentRefund.amount_minor_units), 0))
+        .where(PaymentRefund.status == PaymentRefundStatus.COMPLETED)
+    ).scalar() or 0
+
+    total_orders = db.execute(select(func.count(PaymentOrder.id))).scalar() or 0
+    completed_orders = db.execute(select(func.count(PaymentOrder.id)).where(PaymentOrder.status == PaymentOrderStatus.COMPLETED)).scalar() or 0
+    voided_orders = db.execute(select(func.count(PaymentOrder.id)).where(PaymentOrder.status == PaymentOrderStatus.VOIDED)).scalar() or 0
+
+    total_webhooks = db.execute(select(func.count(WebhookEvent.id))).scalar() or 0
+
+    return StandardResponse(
+        data={
+            "gross_captured_minor_units": total_captured,
+            "gross_refunded_minor_units": total_refunded,
+            "net_reconciled_balance_minor_units": total_captured - total_refunded,
+            "total_orders_count": total_orders,
+            "completed_orders_count": completed_orders,
+            "voided_orders_count": voided_orders,
+            "total_webhooks_received": total_webhooks
+        },
+        message="Financial reconciliation summary calculated successfully"
+    )
+
+

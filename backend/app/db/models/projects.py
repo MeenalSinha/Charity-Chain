@@ -76,6 +76,7 @@ class Project(Base):
     organization = relationship("Organization", back_populates="projects")
     category = relationship("ProjectCategory", back_populates="projects")
     milestones = relationship("Milestone", back_populates="project", cascade="all, delete-orphan", order_by="Milestone.sequence_number")
+    donations = relationship("Donation", back_populates="project")
     creator = relationship("User", foreign_keys=[creator_id])
     reviewer = relationship("User", foreign_keys=[reviewer_id])
 

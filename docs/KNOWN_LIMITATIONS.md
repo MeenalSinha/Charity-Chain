@@ -22,9 +22,18 @@ This document maintains an accurate, truthful record of functionality that is cu
 - **Current Status**: TinyDB stores data in a single JSON file (`data/charity.db`). While stabilized for local single-process development, it does not support ACID transactions, high-concurrency writes, or complex relational queries.
 - **Target (Phase 1 & Database Migration)**: PostgreSQL with SQLAlchemy ORM and Alembic migrations.
 
-## 5. Payments & Financial Transactions
-- **Current Status**: Original prototype used simulated ETH numbers (e.g. `2.5 * 10^18`).
-- **Target (Phase 1 & Phase 4)**: Currency-safe data types (minor units in integer or Decimal), distinct lifecycle states for authorization, capture, void, refund, and payout via PayPal REST API.
+## 5. Payments & Financial Transactions (Phase 4 Completed)
+- **Current Status**:
+  - Full PayPal REST API Orders v2 and Payments v2 integration implemented with `PaymentProviderInterface`.
+  - Intent `CAPTURE` implemented with server-side eligibility validation and currency matching.
+  - Asymmetric cryptographic webhook signature verification and event deduplication active.
+  - Partial and full refund management with remaining refundable balance ceiling enforcement and real-time net funding adjustments.
+  - Zero floating-point arithmetic: strictly integer minor units via `Money` value object.
+- **Boundaries Preserved**:
+  - Captured funds are held in platform accounts; disbursements to NGOs are deferred to Phase 8.
+  - Holding captured funds does not constitute a legally chartered banking escrow trust.
+  - Milestone evidence upload is deferred to Phase 5.
+  - Live AI verification of evidence is deferred to Phase 6.
 
 ## 6. Organization Onboarding & Project Management (Phase 3 Completed)
 - **Current Status**:

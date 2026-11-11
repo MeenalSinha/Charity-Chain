@@ -128,6 +128,18 @@ class Settings(BaseSettings):
     PAYPAL_CLIENT_ID: Optional[str] = Field(default=None, description="PayPal Client ID")
     PAYPAL_CLIENT_SECRET: Optional[str] = Field(default=None, description="PayPal Secret")
     PAYPAL_WEBHOOK_ID: Optional[str] = Field(default=None, description="PayPal Webhook ID")
+    PAYPAL_API_BASE_URL: Optional[str] = Field(default=None, description="Custom PayPal API Base URL override")
+    PAYPAL_CONNECT_TIMEOUT: float = Field(default=10.0, description="PayPal connection timeout in seconds")
+    PAYPAL_READ_TIMEOUT: float = Field(default=30.0, description="PayPal read timeout in seconds")
+    PAYPAL_RETRY_LIMIT: int = Field(default=3, description="PayPal API max retry attempts for transient errors")
+    PAYPAL_WEBHOOK_VERIFY_ENABLED: bool = Field(default=True, description="Enforce cryptographic verification of webhooks")
+    MIN_DONATION_AMOUNT: int = Field(default=100, description="Minimum donation amount in minor units (e.g. 100 cents = $1.00)")
+    MAX_DONATION_AMOUNT: int = Field(default=100000000, description="Maximum donation amount in minor units (e.g. 100,000,000 cents = $1,000,000)")
+    PAYMENT_ORDER_EXPIRY_MINUTES: int = Field(default=60, description="PayPal order expiration window in minutes")
+    WEBHOOK_PROCESSING_RETRY_LIMIT: int = Field(default=3, description="Max retries for webhook processing")
+    OAUTH_TOKEN_CACHE_TTL_SECONDS: int = Field(default=300, description="Safety margin buffer for OAuth token caching in seconds")
+    FRONTEND_RETURN_URL: str = Field(default="http://localhost:8501/?page=donation_result", description="Default checkout return URL")
+    FRONTEND_CANCEL_URL: str = Field(default="http://localhost:8501/?page=donation_cancel", description="Default checkout cancel URL")
     DEFAULT_CURRENCY: str = Field(default="USD", description="Base ISO 4217 Currency Code")
     SUPPORTED_CURRENCIES: List[str] = Field(
         default=["USD", "EUR", "GBP", "INR", "ETH"],

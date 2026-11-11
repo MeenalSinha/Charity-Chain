@@ -83,3 +83,21 @@
 | **3.13** | Comprehensive Automated Testing (107 Tests Passing) | **COMPLETED** | 107 tests passing in 35.35s across unit, integration, security, and functional layers with 0 failures and 0 errors. |
 
 
+
+---
+
+## Phase 4: PayPal Payment Gateway Integration & Donation Processing
+
+| Task ID | Task Description | Status | Verification Note |
+| :---:|:---|:---:|:---|
+| **4.1** | Payment Provider Abstraction & PayPal Client | **COMPLETED** | Standard `PaymentProviderInterface` implemented via `PayPalPaymentProvider` and `MockPayPalProvider`. OAuth 2.0 caching with TTL safety buffer, retry policies, and typed exceptions. |
+| **4.2** | Core Domain & State Machine Enhancements | **COMPLETED** | Added `DonationStatus`, `WebhookProcessingStatus`, `WebhookSignatureStatus`. Configured transitions for donations, orders, captures, and refunds in `StateMachineValidator`. |
+| **4.3** | Database Models & Alembic Migration 004 | **COMPLETED** | Enriched `Donation`, `PaymentOrder`, `PaymentCapture`, `PaymentRefund`. Added `WebhookEvent` table. Authored migration `004_phase4_payment_and_donations.py`. |
+| **4.4** | Server-Side Donation Intent & Order Creation | **COMPLETED** | `DonationService.create_donation_intent` validates project/milestone/NGO eligibility, bounds, and currency consistency; creates PayPal order with intent `CAPTURE`. |
+| **4.5** | Payment Capture & Idempotency | **COMPLETED** | `DonationService.capture_donation_payment` validates gateway status, matches amounts, persists `PaymentCapture`, updates raised funding aggregates, and guarantees idempotency. |
+| **4.6** | Webhook Cryptographic Verification & Deduplication | **COMPLETED** | `POST /api/v1/webhooks/paypal` cryptographically verifies signatures via PayPal API, deduplicates events via `webhook_events.event_id`, and auto-captures approved orders. |
+| **4.7** | Refund Management & Net Funding Decrement | **COMPLETED** | `DonationService.process_refund` supports partial and full refunds against remaining refundable balance ceiling, executing via PayPal Refund API and updating project/milestone net totals. |
+| **4.8** | Financial Data Integrity & Aggregation Engine | **COMPLETED** | Zero floating-point arithmetic using `Money` minor units. Real-time net funding aggregation (captures - refunds) in `DonationService.get_project_funding_summary`. |
+| **4.9** | REST API Routing & OpenAPI Documentation | **COMPLETED** | Registered donations, payments, refunds, webhooks, funding, and admin reporting endpoints under `/api/v1`. All 72 routes verified in OpenAPI schema. |
+| **4.10** | Streamlit UI Contribution & Dashboard Integration | **COMPLETED** | Interactive PayPal donation workflow on Project Discovery page and comprehensive Donor Dashboard with financial KPI cards and refund request forms in `app_ui.py`. |
+| **4.11** | Comprehensive Automated Testing (133 Tests Passing) | **COMPLETED** | All 133 tests passed in 73.21s with 0 failures and 0 errors across all 19 test suites. |

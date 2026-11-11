@@ -119,3 +119,4 @@ The migration implements full, symmetric `downgrade()` logic that safely drops n
 ```bash
 alembic downgrade -1
 ```
+

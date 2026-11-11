@@ -10,7 +10,7 @@ from backend.app.core.constants import (
     OrganizationStatus, ProjectStatus, MilestoneStatus,
     EvidenceStatus, PaymentOrderStatus, PaymentAuthorizationStatus,
     PaymentCaptureStatus, PaymentRefundStatus, DisbursementStatus,
-    PlatformRole, OrganizationRole, UserRole
+    DonationStatus, PlatformRole, OrganizationRole, UserRole
 )
 from backend.app.core.exceptions import InvalidStateTransitionError, UnauthorizedTransitionError
 
@@ -72,6 +72,38 @@ PAYMENT_AUTHORIZATION_TRANSITIONS: Dict[PaymentAuthorizationStatus, Set[PaymentA
     PaymentAuthorizationStatus.DENIED: set(),
     PaymentAuthorizationStatus.EXPIRED: set(),
     PaymentAuthorizationStatus.VOIDED: set(),
+}
+
+DONATION_TRANSITIONS: Dict[DonationStatus, Set[DonationStatus]] = {
+    DonationStatus.CREATED: {DonationStatus.PAYMENT_PENDING, DonationStatus.CANCELLED, DonationStatus.FAILED},
+    DonationStatus.PAYMENT_PENDING: {DonationStatus.PAID, DonationStatus.FAILED, DonationStatus.CANCELLED},
+    DonationStatus.PAID: {DonationStatus.PARTIALLY_REFUNDED, DonationStatus.REFUNDED},
+    DonationStatus.PARTIALLY_REFUNDED: {DonationStatus.PARTIALLY_REFUNDED, DonationStatus.REFUNDED},
+    DonationStatus.FAILED: set(),
+    DonationStatus.CANCELLED: set(),
+    DonationStatus.REFUNDED: set(),
+}
+
+PAYMENT_ORDER_TRANSITIONS: Dict[PaymentOrderStatus, Set[PaymentOrderStatus]] = {
+    PaymentOrderStatus.CREATED: {PaymentOrderStatus.SAVED, PaymentOrderStatus.APPROVED, PaymentOrderStatus.VOIDED, PaymentOrderStatus.COMPLETED},
+    PaymentOrderStatus.SAVED: {PaymentOrderStatus.APPROVED, PaymentOrderStatus.VOIDED},
+    PaymentOrderStatus.APPROVED: {PaymentOrderStatus.COMPLETED, PaymentOrderStatus.VOIDED},
+    PaymentOrderStatus.COMPLETED: set(),
+    PaymentOrderStatus.VOIDED: set(),
+}
+
+PAYMENT_CAPTURE_TRANSITIONS: Dict[PaymentCaptureStatus, Set[PaymentCaptureStatus]] = {
+    PaymentCaptureStatus.PENDING: {PaymentCaptureStatus.COMPLETED, PaymentCaptureStatus.DECLINED},
+    PaymentCaptureStatus.COMPLETED: {PaymentCaptureStatus.PARTIALLY_REFUNDED, PaymentCaptureStatus.REFUNDED},
+    PaymentCaptureStatus.PARTIALLY_REFUNDED: {PaymentCaptureStatus.PARTIALLY_REFUNDED, PaymentCaptureStatus.REFUNDED},
+    PaymentCaptureStatus.DECLINED: set(),
+    PaymentCaptureStatus.REFUNDED: set(),
+}
+
+PAYMENT_REFUND_TRANSITIONS: Dict[PaymentRefundStatus, Set[PaymentRefundStatus]] = {
+    PaymentRefundStatus.PENDING: {PaymentRefundStatus.COMPLETED, PaymentRefundStatus.FAILED},
+    PaymentRefundStatus.COMPLETED: set(),
+    PaymentRefundStatus.FAILED: set(),
 }
 
 DISBURSEMENT_TRANSITIONS: Dict[DisbursementStatus, Set[DisbursementStatus]] = {
@@ -221,4 +253,57 @@ class StateMachineValidator:
                 )
 
         return True
+
+    @staticmethod
+    def validate_donation_transition(
+        current: DonationStatus,
+        target: DonationStatus
+    ) -> bool:
+        """Validates donation lifecycle transition."""
+        allowed = DONATION_TRANSITIONS.get(current, set())
+        if target not in allowed:
+            raise InvalidStateTransitionError(
+                f"Invalid Donation transition from {current.value} to {target.value}. Allowed: {[s.value for s in allowed]}"
+            )
+        return True
+
+    @staticmethod
+    def validate_payment_order_transition(
+        current: PaymentOrderStatus,
+        target: PaymentOrderStatus
+    ) -> bool:
+        """Validates payment order transition."""
+        allowed = PAYMENT_ORDER_TRANSITIONS.get(current, set())
+        if target not in allowed:
+            raise InvalidStateTransitionError(
+                f"Invalid PaymentOrder transition from {current.value} to {target.value}. Allowed: {[s.value for s in allowed]}"
+            )
+        return True
+
+    @staticmethod
+    def validate_payment_capture_transition(
+        current: PaymentCaptureStatus,
+        target: PaymentCaptureStatus
+    ) -> bool:
+        """Validates payment capture transition."""
+        allowed = PAYMENT_CAPTURE_TRANSITIONS.get(current, set())
+        if target not in allowed:
+            raise InvalidStateTransitionError(
+                f"Invalid PaymentCapture transition from {current.value} to {target.value}. Allowed: {[s.value for s in allowed]}"
+            )
+        return True
+
+    @staticmethod
+    def validate_payment_refund_transition(
+        current: PaymentRefundStatus,
+        target: PaymentRefundStatus
+    ) -> bool:
+        """Validates payment refund transition."""
+        allowed = PAYMENT_REFUND_TRANSITIONS.get(current, set())
+        if target not in allowed:
+            raise InvalidStateTransitionError(
+                f"Invalid PaymentRefund transition from {current.value} to {target.value}. Allowed: {[s.value for s in allowed]}"
+            )
+        return True
+
 

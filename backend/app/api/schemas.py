@@ -693,3 +693,93 @@ class ProjectResponse(BaseModel):
     def funding_raised_minor(self) -> int:
         return self.raised_amount_minor_units
 
+
+# ============================================================================
+# PHASE 4 DONATION, PAYMENT & REFUND SCHEMAS
+# ============================================================================
+
+from backend.app.core.constants import DonationStatus, PaymentOrderStatus, PaymentCaptureStatus, PaymentRefundStatus
+
+
+class CreateDonationRequest(BaseModel):
+    project_id: str
+    milestone_id: str
+    amount_minor_units: int = Field(..., gt=0, description="Contribution amount in integer minor units (e.g. 2500 for $25.00)")
+    currency: str = Field(default="USD", min_length=3, max_length=3)
+    donor_name: Optional[str] = Field(None, max_length=255)
+    donor_email: Optional[str] = Field(None, max_length=255)
+    is_anonymous: bool = Field(default=False)
+    return_url: Optional[str] = None
+    cancel_url: Optional[str] = None
+
+
+class DonationResponse(BaseModel):
+    id: str
+    donor_id: Optional[str] = None
+    project_id: str
+    milestone_id: str
+    amount_minor_units: int
+    currency: str
+    status: DonationStatus
+    donor_name: Optional[str] = None
+    is_anonymous: bool = False
+    order_id: Optional[str] = None
+    provider_order_id: Optional[str] = None
+    approval_url: Optional[str] = None
+    completed_at: Optional[datetime] = None
+    created_at: datetime
+
+
+class CapturePaymentRequest(BaseModel):
+    idempotency_key: Optional[str] = None
+
+
+class CapturePaymentResponse(BaseModel):
+    capture_id: str
+    order_id: str
+    provider_capture_id: str
+    status: str
+    amount_minor_units: int
+    currency: str
+    donation_status: str
+
+
+class CreateRefundRequest(BaseModel):
+    amount_minor_units: int = Field(..., gt=0, description="Refund amount in minor units")
+    reason: str = Field(default="Donor requested refund", min_length=3, max_length=255)
+
+
+class RefundResponse(BaseModel):
+    refund_id: str
+    donation_id: str
+    provider_refund_id: str
+    amount_minor_units: int
+    currency: str
+    status: str
+    donation_status: str
+    remaining_refundable_minor_units: int
+
+
+class MilestoneFundingSummary(BaseModel):
+    milestone_id: str
+    sequence_number: int
+    title: str
+    target_amount_minor_units: int
+    gross_received_minor_units: int
+    refunded_minor_units: int
+    net_received_minor_units: int
+    percentage_funded: float
+
+
+class ProjectFundingSummaryResponse(BaseModel):
+    project_id: str
+    project_title: str
+    currency: str
+    target_amount_minor_units: int
+    gross_received_minor_units: int
+    refunded_minor_units: int
+    net_received_minor_units: int
+    percentage_funded: float
+    milestones: List[MilestoneFundingSummary]
+
+

@@ -28,15 +28,17 @@ from backend.app.db.session import SessionFactory
 from backend.app.core.config import settings
 from backend.app.core.constants import (
     PlatformRole, OrganizationRole, OrganizationStatus, OrganizationType,
-    OrganizationDocumentType, ProjectStatus, MilestoneStatus, ProjectVisibility
+    OrganizationDocumentType, ProjectStatus, MilestoneStatus, ProjectVisibility,
+    DonationStatus, PaymentOrderStatus, PaymentCaptureStatus, PaymentRefundStatus
 )
 from backend.app.api.schemas import (
     CreateOrganizationRequest, UpdateOrganizationRequest, OrganizationDecisionRequest,
     CreateProjectRequest, UpdateProjectRequest, ProjectDecisionRequest,
-    CreateMilestoneRequest, UpdateMilestoneRequest
+    CreateMilestoneRequest, UpdateMilestoneRequest, CreateDonationRequest
 )
 from backend.app.services.ngo_onboarding_service import NGOOnboardingService
 from backend.app.services.project_service import ProjectService
+from backend.app.services.donation_service import DonationService
 from backend.app.integrations.storage.local import LocalStorageProvider
 
 
@@ -792,23 +794,99 @@ def page_discover_projects():
                     st.markdown(f"- **#{m.sequence_number}: {m.title}** (${m.funding_target_minor/100:,.2f}) — `{m.status}`")
                     st.caption(f"Objective: {m.objective}")
 
-            # Contribution CTA
-            with st.form(f"fund_proj_{proj.id}"):
-                c1, c2 = st.columns(2)
-                with c1:
-                    d_name = st.text_input("Donor Name", value="Alice Donor", key=f"dname_{proj.id}")
-                with c2:
-                    d_amount = st.number_input("Contribution Amount (USD)", min_value=1.0, value=50.0, step=10.0, key=f"damt_{proj.id}")
+            # Genuine Phase 4 PayPal Contribution Experience
+            st.markdown("##### 💝 Support this Project via PayPal")
+            if not ms:
+                st.info("Milestones for this project are being finalized. Contributions will open shortly.")
+            else:
+                user_id, role, full_name, email = get_current_user_info()
                 
-                if st.form_submit_button("💝 Contribute with Evidence Guarantee", type="primary", use_container_width=True):
-                    with st.spinner("Processing verified contribution..."):
-                        time.sleep(0.3)
-                        # Record contribution against project and TinyDB ledger
-                        db_legacy.add_donation(1, d_name, int(d_amount * 10**16))
-                        st.success(f"✅ Successfully contributed ${d_amount:.2f} to {proj.title}! Milestone funds locked until verified.")
-                        st.balloons()
-                        time.sleep(1)
-                        st.rerun()
+                # Check if there is an active pending order in session for this project
+                active_order_key = f"active_order_{proj.id}"
+                active_order = st.session_state.get(active_order_key)
+
+                if active_order:
+                    st.info(f"⏳ **Active PayPal Order Created**: `{active_order.get('provider_order_id')}`")
+                    st.markdown(f"**Amount**: ${active_order.get('amount_minor_units', 0)/100:,.2f} {active_order.get('currency', 'USD')}")
+                    
+                    col_btn1, col_btn2, col_btn3 = st.columns([2, 2, 1])
+                    with col_btn1:
+                        if active_order.get("approval_url"):
+                            st.link_button("💳 Complete Payment on PayPal", active_order["approval_url"], use_container_width=True)
+                    with col_btn2:
+                        if st.button("✅ Confirm & Capture Payment", type="primary", key=f"cap_{proj.id}", use_container_width=True):
+                            with st.spinner("Verifying transaction with PayPal..."):
+                                try:
+                                    srv = DonationService()
+                                    with SessionFactory() as db:
+                                        cap_res = asyncio.run(
+                                            srv.capture_donation_payment(
+                                                db=db,
+                                                order_identifier=active_order["provider_order_id"],
+                                                user_id=user_id
+                                            )
+                                        )
+                                    st.success(f"🎉 Payment Verified & Captured! Capture ID: `{cap_res['provider_capture_id']}`")
+                                    st.balloons()
+                                    del st.session_state[active_order_key]
+                                    time.sleep(1.5)
+                                    st.rerun()
+                                except Exception as err:
+                                    st.error(f"Capture failed: {err}")
+                    with col_btn3:
+                        if st.button("❌ Cancel", key=f"cnc_{proj.id}", use_container_width=True):
+                            del st.session_state[active_order_key]
+                            st.rerun()
+
+                else:
+                    with st.form(f"fund_proj_{proj.id}"):
+                        c_ms, c_amt = st.columns([2, 1])
+                        with c_ms:
+                            sel_m_id = st.selectbox(
+                                "Select Milestone to Fund",
+                                options=[m.id for m in ms],
+                                format_func=lambda x: next(f"#{m.sequence_number}: {m.title} (${m.funding_target_minor/100:,.2f})" for m in ms if m.id == x),
+                                key=f"ms_sel_{proj.id}"
+                            )
+                        with c_amt:
+                            d_amount = st.number_input(
+                                f"Amount ({proj.currency})",
+                                min_value=1.0,
+                                value=50.0,
+                                step=10.0,
+                                key=f"damt_{proj.id}"
+                            )
+
+                        c_anon, c_info = st.columns([1, 2])
+                        with c_anon:
+                            is_anon = st.checkbox("Donate Anonymously", value=False, key=f"anon_{proj.id}")
+                        with c_info:
+                            st.caption("🔒 Payments are securely processed via PayPal REST API. Funds are tied to verifiable milestone evidence.")
+
+                        if st.form_submit_button("💳 Proceed to PayPal Checkout", type="primary", use_container_width=True):
+                            amount_minor = int(d_amount * 100)
+                            with st.spinner("Generating secure PayPal checkout order..."):
+                                try:
+                                    srv = DonationService()
+                                    with SessionFactory() as db:
+                                        res_order = asyncio.run(
+                                            srv.create_donation_intent(
+                                                db=db,
+                                                project_id=proj.id,
+                                                milestone_id=sel_m_id,
+                                                amount_minor_units=amount_minor,
+                                                currency=proj.currency,
+                                                donor_id=user_id,
+                                                donor_name=full_name if not is_anon else "Anonymous Donor",
+                                                donor_email=email,
+                                                is_anonymous=is_anon
+                                            )
+                                        )
+                                    st.session_state[active_order_key] = res_order
+                                    st.success("✅ PayPal order created! Click the payment button below to complete checkout.")
+                                    st.rerun()
+                                except Exception as exc:
+                                    st.error(f"Checkout initialization failed: {exc}")
 
     # If legacy items exist, show them under a dedicated section
     if legacy_milestones:
@@ -832,6 +910,144 @@ def page_create_project():
 def page_donate():
     """Legacy alias redirecting to Phase 3 public discovery."""
     page_discover_projects()
+
+
+# ============================================================================
+# PAGE: DONOR DASHBOARD (Phase 4 Payment History & Refunds)
+# ============================================================================
+
+def page_donor_dashboard():
+    """Donor financial portfolio, transaction history, receipts, and refund requests."""
+    st.header("💝 Donor Dashboard & Contribution History")
+    st.write("Track all your evidence-backed contributions, inspect verified payment receipts, and manage eligible refunds.")
+
+    user_id, role, full_name, email = get_current_user_info()
+    if not user_id or user_id == "demo_user":
+        st.warning("🔒 Please sign in to view your personal donation history and manage refunds.")
+        return
+
+    srv = DonationService()
+    with SessionFactory() as db:
+        donations, total_count = srv.list_donor_donations(db, donor_id=user_id, page=1, page_size=100)
+
+    # Calculate portfolio summary
+    paid_donations = [d for d in donations if d.status in (DonationStatus.PAID, DonationStatus.PARTIALLY_REFUNDED, DonationStatus.REFUNDED)]
+    gross_minor = sum(d.amount_minor_units for d in paid_donations)
+    
+    with SessionFactory() as db:
+        from backend.app.db.models.financial import PaymentRefund, PaymentCapture
+        from sqlalchemy import select, func
+        donation_ids = [d.id for d in donations]
+        refunded_minor = 0
+        if donation_ids:
+            refunded_minor = db.execute(
+                select(func.coalesce(func.sum(PaymentRefund.amount_minor_units), 0))
+                .select_from(PaymentRefund)
+                .join(PaymentCapture, PaymentRefund.capture_id == PaymentCapture.id)
+                .join(Donation, PaymentCapture.order_id == Donation.id)
+                .where(Donation.donor_id == user_id)
+            ).scalar() or 0
+
+    net_minor = max(0, gross_minor - refunded_minor)
+
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Total Contributed", f"${gross_minor/100:,.2f}")
+    with col2:
+        st.metric("Successful Contributions", len(paid_donations))
+    with col3:
+        st.metric("Total Refunded", f"${refunded_minor/100:,.2f}")
+    with col4:
+        st.metric("Net Impact Funding", f"${net_minor/100:,.2f}")
+
+    st.markdown("---")
+    st.subheader(f"📜 Contribution Records ({total_count})")
+
+    if not donations:
+        st.info("You haven't made any contributions yet. Explore verified projects to get started!")
+        return
+
+    for don in donations:
+        with SessionFactory() as db:
+            from backend.app.db.models.projects import Project, Milestone
+            from backend.app.db.models.financial import PaymentOrder, PaymentCapture, PaymentRefund
+            proj = db.execute(select(Project).where(Project.id == don.project_id)).scalar_one_or_none()
+            ms = db.execute(select(Milestone).where(Milestone.id == don.milestone_id)).scalar_one_or_none()
+            p_order = db.execute(select(PaymentOrder).where(PaymentOrder.donation_id == don.id)).scalar_one_or_none()
+            p_capture = db.execute(select(PaymentCapture).where(PaymentCapture.order_id == p_order.id)).scalar_one_or_none() if p_order else None
+            refunds = db.execute(select(PaymentRefund).where(PaymentRefund.capture_id == p_capture.id)).scalars().all() if p_capture else []
+
+        badge_color = "green" if don.status == DonationStatus.PAID else ("orange" if don.status == DonationStatus.PAYMENT_PENDING else ("blue" if "REFUND" in don.status.value else "red"))
+        card_title = f"🏷️ {proj.title if proj else 'Unknown Project'} — ${don.amount_minor_units/100:,.2f} {don.currency} [{don.status.value}]"
+
+        with st.expander(card_title, expanded=(don.status == DonationStatus.PAID)):
+            c_left, c_right = st.columns([2, 1])
+            with c_left:
+                st.markdown(f"**Target Milestone:** #{ms.sequence_number if ms else '?'}: {ms.title if ms else 'General'}")
+                st.markdown(f"**Donation Reference:** `{don.id}`")
+                if p_order and p_order.provider_order_id:
+                    st.markdown(f"**PayPal Order ID:** `{p_order.provider_order_id}`")
+                if p_capture and p_capture.provider_capture_id:
+                    st.markdown(f"**Provider Capture ID:** `{p_capture.provider_capture_id}`")
+                st.caption(f"Created: {don.created_at.strftime('%Y-%m-%d %H:%M UTC') if don.created_at else 'N/A'}")
+
+            with c_right:
+                st.metric("Amount", f"${don.amount_minor_units/100:,.2f} {don.currency}")
+                st.markdown(f"**Status:** `{don.status.value}`")
+
+            # Show existing refunds
+            if refunds:
+                st.markdown("##### 💸 Processed Refunds")
+                for r in refunds:
+                    st.markdown(f"- **${r.amount_minor_units/100:,.2f} {r.currency}** — *{r.reason}* (`{r.provider_refund_id}`)")
+
+            # Refund Request Form for PAID or PARTIALLY_REFUNDED donations
+            if don.status in (DonationStatus.PAID, DonationStatus.PARTIALLY_REFUNDED) and p_capture:
+                already_ref = sum(r.amount_minor_units for r in refunds if r.status == PaymentRefundStatus.COMPLETED)
+                remaining_ref = p_capture.amount_minor_units - already_ref
+
+                if remaining_ref > 0:
+                    with st.expander("🔄 Request Full or Partial Refund"):
+                        with st.form(f"refund_form_{don.id}"):
+                            max_val = float(remaining_ref / 100.0)
+                            ref_amt = st.number_input(
+                                f"Refund Amount ({don.currency}) - Max: ${max_val:,.2f}",
+                                min_value=1.0,
+                                max_value=max_val,
+                                value=max_val,
+                                step=5.0,
+                                key=f"ref_amt_{don.id}"
+                            )
+                            ref_reason = st.text_input(
+                                "Reason for Refund *",
+                                value="Donor requested refund",
+                                key=f"ref_rsn_{don.id}"
+                            )
+                            btn_ref = st.form_submit_button("Submit Refund Request", type="primary")
+
+                            if btn_ref:
+                                if not ref_reason:
+                                    st.error("Please provide a reason for the refund.")
+                                else:
+                                    with st.spinner("Processing refund with PayPal..."):
+                                        try:
+                                            with SessionFactory() as db_ref:
+                                                ref_res = asyncio.run(
+                                                    srv.process_refund(
+                                                        db=db_ref,
+                                                        donation_id=don.id,
+                                                        amount_minor_units=int(ref_amt * 100),
+                                                        reason=ref_reason,
+                                                        actor_id=user_id,
+                                                        is_admin=False
+                                                    )
+                                                )
+                                            st.success(f"✅ Refund of ${ref_amt:,.2f} processed successfully! Refund ID: `{ref_res['provider_refund_id']}`")
+                                            time.sleep(1.5)
+                                            st.rerun()
+                                        except Exception as exc:
+                                            st.error(f"Refund failed: {exc}")
+
 
 
 # ============================================================================
@@ -1012,6 +1228,7 @@ def main():
         nav_options = [
             "Home",
             "Discover Projects",
+            "Donor Dashboard",
             "Organization Onboarding",
             "Project Management",
             "Reviewer Queue",
@@ -1044,6 +1261,8 @@ def main():
         page_home()
     elif page in ["Discover Projects", "Donate"]:
         page_discover_projects()
+    elif page in ["Donor Dashboard", "Donations"]:
+        page_donor_dashboard()
     elif page == "Organization Onboarding":
         page_organization_onboarding()
     elif page in ["Project Management", "Create"]:
