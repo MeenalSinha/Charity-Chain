@@ -1,345 +1,230 @@
-# 🌍 CharityChain — AI-Powered Transparent Charity Platform
+# 🌍 CharityChain — AI-Powered Charitable Giving & Impact Verification
 
-**Empowering donors with proof of real-world impact**
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-1.40+-FF4B4B.svg)](https://streamlit.io/)
+[![Tests](https://img.shields.io/badge/tests-50%2F50%20passing-brightgreen.svg)](docs/TEST_REPORT.md)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-CharityChain is a donation platform that ensures every rupee donated creates verifiable, measurable, and authentic humanitarian impact. Using AI-powered evidence verification and digital Proof-of-Impact certificates, donors finally get transparency and confidence like never before.
+> **Give with Evidence. Release with Confidence.**
 
----
+CharityChain is an AI-powered charitable giving and impact verification platform that connects donor contributions directly with verifiable, real-world evidence of completed milestones.
 
-## 🚀 Key Features
-
-| Module | What it does |
-|--------|-------------|
-| 🤖 **AI Evidence Verification** | Detects fraud, tampering, and validates evidence authenticity |
-| 🔗 **Smart Funding Logic** | Simulates escrow behavior - funds only released after verification |
-| 🪪 **Proof-of-Impact Certificates** | Donors receive digital certificates when milestones are achieved |
-| 📊 **Impact Analytics Dashboard** | Live charts showing funds raised, verification success rate & progress |
-| 🗺 **Global Project Map** | Visualizes real NGO impact locations using geocoordinates |
-| 🏅 **Badge & Gamification System** | Rewards donors & NGOs for achievement and transparency |
-| 💾 **Lightweight Database** | TinyDB ensures fast local development and prototyping |
+Traditional giving platforms often lack transparency after donations are submitted. NGOs struggle to demonstrate accountability, while donors have limited visibility into whether promised humanitarian work was completed. CharityChain bridges this gap by unifying donations, milestone tracking, multi-algorithm AI forensic verification, human review governance, and verifiable Proof-of-Impact records in one transparent ecosystem.
 
 ---
 
-## 🛠️ Architecture Overview
+## 🎯 The Core Principle
+
+> **"AI analyzes. Evidence supports. Humans decide. Payment systems execute. CharityChain records."**
+
+- **AI Analyzes**: Computer vision models (YOLOv8, Error Level Analysis, pHash deduplication, SSIM, EXIF GPS extraction) analyze submitted evidence for forensic consistency.
+- **Evidence Supports**: NGOs upload verifiable photographs and documentation as proof of milestone delivery.
+- **Humans Decide**: Authorized human reviewers inspect AI forensic signals and sign off on approvals, rejections, or revision requests. **AI never independently approves financial releases.**
+- **Payment Systems Execute**: Platform explicitly distinguishes between payment order authorization, payment capture, donor refunds, and NGO disbursements (via PayPal). Standard authorization is never misrepresented as smart contract escrow.
+- **CharityChain Records**: Every financial event, milestone transition, and verification decision is permanently committed to an append-only, auditable Impact Ledger.
+
+---
+
+## 🏗️ System Architecture
+
+CharityChain is architected as a **Modular Monolith** supporting a decoupled presentation layer:
 
 ```
-Streamlit Frontend (UI)
-       │
-       ▼
-CharityTracker Backend Engine
-       │
-       ├── DatabaseManager (TinyDB)
-       ├── AI Verifier (Object Detection + Tamper Detection + Image Analysis)
-       ├── Mock IPFS Handler (Demo mode with simulated CIDs)
-       ├── Oracle Verification Logic
-       ├── Certificate & Badge System
-       └── Analytics + Visualization Engine
+                            ┌────────────────────────────┐
+                            │    Presentation Tier       │
+                            │  Streamlit UI (Baseline)   │
+                            │  Next.js 14+ (Roadmap)     │
+                            └─────────────┬──────────────┘
+                                          │ REST API / HTTP
+                                          ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                      FastAPI Modular Monolith Backend                           │
+│                                                                                 │
+│  ┌───────────────────────┐  ┌───────────────────────┐  ┌─────────────────────┐  │
+│  │   app.core            │  │   app.db & models     │  │   app.integrations  │  │
+│  │  - Pydantic Settings  │  │  - Users & Orgs       │  │  - Payments (PayPal)│  │
+│  │  - Money Value Object │  │  - Projects & Milest. │  │  - AI Verifier Suite│  │
+│  │  - State Machines     │  │  - Financial Ledger   │  │  - Blob Storage     │  │
+│  │  - Structured Logging │  │  - Evidence & Reports │  │  - Notifications    │  │
+│  │  - Custom Exceptions  │  │  - Certificates &Audit│  │                     │  │
+│  └───────────────────────┘  └───────────────────────┘  └─────────────────────┘  │
+│                                          │                                      │
+│                                          ▼                                      │
+│                             SQLAlchemy 2.0 / Alembic                            │
+└──────────────────────────────────────────┬──────────────────────────────────────┘
+                                           │
+                        ┌──────────────────┴──────────────────┐
+                        ▼                                     ▼
+             PostgreSQL 16 (Relational)                 Redis 7 (Cache/Queue)
+             TinyDB (Local Prototyping)                 Local / S3 Blob Storage
 ```
 
 ---
 
-## 🧪 Demo Data (Instant Setup)
+## 🚀 Key Modules & Capabilities
 
-The platform auto-loads demo projects on first launch, meaning you immediately see:
-- ✅ 5 global charity projects
-- ✅ Realistic donation progress
-- ✅ Pending milestones for evidence upload
-
-You can reload sample data anytime through:
-
-```
-🚀 Reload Demo Data  (Sidebar Button)
-```
+| Module | Purpose & Implementation |
+|---|---|
+| 🤖 **AI Forensic Verifier** | Multi-algorithm verification suite: YOLOv8 object detection, Error Level Analysis (ELA) for compression anomalies, perceptual hashing (pHash) for image deduplication, SSIM before/after comparison, and true EXIF GPS extraction with Haversine distance validation. Returns structured statuses (`PASSED`, `FAILED`, `UNAVAILABLE`, `NOT_APPLICABLE`). |
+| 💰 **Financial Engine** | Strict `Money` Value Object storing amounts as 64-bit integer minor units (cents) with ISO 4217 currency tracking and Banker's Rounding (`ROUND_HALF_EVEN`). Zero floating-point rounding errors. |
+| 🛡️ **State Machine Governance** | Deterministic lifecycles for Organizations, Projects, Milestones, Payment Orders, Captures, Disbursements, and Evidence with role-based access control (`DONOR`, `NGO_ADMIN`, `REVIEWER`, `SUPER_ADMIN`). |
+| 🪪 **Proof-of-Impact Certificates** | Verifiable digital certificates awarded to donors containing unique certificate numbers, milestone hashes, and SHA-256 cryptographic digests. |
+| 📊 **Impact Analytics** | Real-time project funding progress, verification success rates, milestone distribution, and geographic project mapping. |
+| 🔒 **Security & Hardening** | Magic-bytes MIME validation, file size limits (10MB), rate limiting per user, correlation ID tracking (`X-Correlation-ID`), and automatic secret redaction in logs. |
 
 ---
 
-## 💻 How to Run Locally
+## 💻 Quick Start & Running Locally
 
-### 1️⃣ Install dependencies
+### 1️⃣ Clone & Set Up Environment
 
 ```bash
+git clone https://github.com/MeenalSinha/Charity-Chain.git
+cd Charity-Chain
+
+# Create and activate virtual environment
+python -m venv venv
+# Windows:
+venv\Scripts\activate
+# macOS/Linux:
+source venv/bin/activate
+
+# Install runtime and dev dependencies
 pip install -r requirements.txt
+pip install -r requirements-dev.txt
 ```
 
-### 2️⃣ Run Streamlit
+### 2️⃣ Configure Environment Variables
+
+Copy the provided template to create your `.env` file (safe development defaults are included):
+
+```bash
+cp .env.example .env
+```
+
+### 3️⃣ Run Streamlit Interactive UI
 
 ```bash
 streamlit run app_ui.py
 ```
+Open your browser at **http://localhost:8501/**.
 
-### 3️⃣ Browser opens automatically at:
-
-```
-http://localhost:8501/
-```
-
----
-
-## 🔍 Folder Structure
-
-```
-CharityChain/
-│
-├── app_ui.py                # Streamlit frontend
-├── charity_tracker.py       # Backend: DB + AI + Certificates + Analytics
-├── requirements.txt
-├── README.md
-│
-├── data/                    # DB folder (auto-filled at runtime)
-│   ├── charity.db          # TinyDB database (auto-generated)
-│   └── evidence/           # Uploaded evidence files
-│
-├── logs/                    # Application logs
-└── models/                  # Optional model weights (YOLOv8)
-```
-
-⚠️ **Do NOT commit your local DB file (TinyDB JSON). It is auto-generated.**
-
----
-
-## 📌 Technology Stack
-
-| Category | Tech |
-|----------|------|
-| **Frontend** | Streamlit |
-| **Backend** | Python |
-| **AI** | YOLOv8 Object Detection, Image Analysis, Tamper Detection |
-| **Storage** | TinyDB (local JSON database) |
-| **Visualization** | Plotly, Altair, Folium |
-| **Deployment** | Streamlit Cloud / Render |
-
----
-
-## 🤖 AI Verification System
-
-CharityChain uses multiple verification algorithms to ensure authenticity:
-
-### 1. **Object Detection (YOLOv8)**
-- Identifies relevant objects in evidence photos
-- Ensures claimed activities are actually present
-- Detects people, construction equipment, infrastructure, etc.
-
-### 2. **Tamper Detection (Error Level Analysis)**
-- Analyzes compression artifacts to detect image manipulation
-- Flags suspicious editing or Photoshop artifacts
-- Uses ELA (Error Level Analysis) algorithm
-
-### 3. **Image Similarity Analysis**
-- Compares before/after images using perceptual hashing (pHash)
-- Detects genuine change vs. fake progress
-- Prevents duplicate evidence submission
-
-### 4. **Metadata Inspection**
-- Extracts EXIF data from images
-- Validates camera information and timestamps
-- Checks for metadata tampering
-
-### 5. **Location Mapping**
-- Maps user-provided coordinates on interactive map
-- Validates proximity to expected project location
-- *(EXIF GPS extraction planned for future)*
-
-**Confidence Score**: AI generates a 0-100% confidence score based on all checks. Projects require ≥65% to pass verification.
-
----
-
-## 🎮 Gamification & Rewards
-
-### 🪙 Impact Points System
-- Earn **100 points per ETH donated**
-- Gamified engagement to encourage contributions
-- *(Blockchain token minting planned for future)*
-
-### 🏅 Achievement Badges
-
-| Badge | Requirement |
-|-------|-------------|
-| 💎 **Top Donor** | Make 5+ donations |
-| 🚀 **Early Supporter** | Make your first donation |
-| 🏆 **Impact Champion** | Donate 10+ ETH total |
-| ⭐ **Trusted NGO** | Complete 10+ verified milestones |
-| ✅ **100% Verified** | Earn 5+ Impact Certificates |
-
-### 🎨 Certificate Collection
-Every verified donation generates a unique **Proof-of-Impact Certificate** containing:
-- Project details
-- Donation amount
-- Verification timestamp
-- Evidence reference
-- *(On-chain NFT minting planned for future)*
-
----
-
-## 👥 User Roles
-
-### 🏢 NGO (Charity Organization)
-1. Create charitable projects with funding goals
-2. Submit photo/video evidence when milestones are reached
-3. Receive simulated fund release after verification
-
-### 💰 Donor
-1. Browse and filter verified projects
-2. Donate to causes they trust
-3. Earn Impact Points and Certificates on verification
-
-### 🔍 Oracle (Verifier)
-1. Review AI verification reports
-2. Approve/reject evidence submissions
-3. Trigger fund release or rejection
-
-### 👤 Guest
-- View public projects and analytics
-- Explore platform features without making transactions
-
----
-
-## 📊 Analytics Dashboard
-
-Real-time insights include:
-- 📈 Total funds raised across all projects
-- ✅ Verification success rates
-- 🗺️ Geographic distribution of projects
-- 👥 Top donors and NGOs
-- 📅 Project timeline visualization
-- 🎯 Status distribution (Pending/Verified/Released)
-
----
-
-## 🔐 Security Features
-
-- ✅ **MIME Type Validation** - Only accepts JPG/PNG images
-- ✅ **File Size Limits** - Max 10MB per upload
-- ✅ **Rate Limiting** - 10 uploads per hour per user
-- ✅ **Location Validation** - Verifies project coordinates
-- ✅ **Tamper Detection** - ELA analysis flags manipulated images
-- ✅ **Image Sanitization** - Automatic resizing and format validation
-
----
-
-## 🌐 Environment Variables (Optional)
-
-For future blockchain integration:
+### 4️⃣ Run FastAPI Modular Backend
 
 ```bash
-# Planned Blockchain Configuration
-WEB3_PROVIDER=https://polygon-rpc.com
-CHAIN_ID=137
-ORACLE_PRIVATE_KEY=0x...
-
-# Planned IPFS Storage
-WEB3_STORAGE_TOKEN=eyJ...
-PINATA_API_KEY=...
-PINATA_SECRET=...
-
-# AI Features (Optional)
-OPENAI_API_KEY=sk-...
+uvicorn backend.app.main:app --reload --port 8000
 ```
+- Interactive Swagger UI: **http://localhost:8000/docs**
+- Health Check: **http://localhost:8000/api/v1/health**
 
-**Current Mode**: All features work in demo/simulation mode without requiring blockchain or IPFS credentials.
+### 5️⃣ Run Multi-Container Topology (Docker Compose)
 
----
-
-## 🐛 Troubleshooting
-
-### "No milestones found"
-- Click **🚀 Reload Demo Data** in sidebar
-- Check `data/charity.db` exists
-
-### YOLO detection fails
 ```bash
-pip install ultralytics
+docker compose up -d
 ```
-Model auto-downloads on first run.
-
-### Database locked error
-- Restart application
-- Delete `data/charity.db` (resets all data)
+Starts PostgreSQL 16 on port `5432`, Redis 7 on port `6379`, and the FastAPI Backend on port `8000`.
 
 ---
 
-## 🏆 Why This Project Stands Out
+## 🧪 Automated Testing
 
-✔️ **Solves a real humanitarian problem** - Addresses charity transparency crisis  
-✔️ **Working AI verification** - Functional multi-algorithm evidence validation  
-✔️ **Full demo flow** - Complete donor → NGO → oracle → verification cycle  
-✔️ **Rich visualizations** - Interactive maps, charts, and dashboards  
-✔️ **Clean architecture** - Separated UI and backend for maintainability  
-✔️ **Gamification done right** - Badges and achievements drive engagement  
+CharityChain includes a comprehensive test suite across unit, integration, functional, and security domains:
 
----
+```bash
+# Run all tests
+pytest -v tests/
+```
 
-## 🚧 Future Roadmap
-
-### Phase 1: Enhanced AI
-- [ ] EXIF GPS extraction and validation
-- [ ] SSIM (Structural Similarity) comparison
-- [ ] Advanced ML fraud detection models
-- [ ] Video evidence support
-
-### Phase 2: Blockchain Integration
-- [ ] Smart contract deployment (Ethereum/Polygon)
-- [ ] On-chain NFT minting (ERC-721)
-- [ ] Token rewards system (ERC-20)
-- [ ] Decentralized oracle network
-
-### Phase 3: Platform Expansion
-- [ ] Real IPFS integration
-- [ ] Mobile app (React Native)
-- [ ] Integration with NGO APIs (GiveIndia, GlobalGiving)
-- [ ] Multi-language support (Hindi, Spanish, French)
-- [ ] SMS notifications for milestone updates
-- [ ] DAO governance for oracle decisions
+**Test Results: 50 passed out of 50 tests (100% pass rate):**
+- **Unit Tests (40 passed)**: Currency math & Banker's rounding, AI verifier non-fabrication, EXIF GPS Haversine calculation, TinyDB truthiness, relational models, state machines, Pydantic settings, exception hierarchy, security validation.
+- **Integration Tests (6 passed)**: End-to-end donation-to-verification workflow, FastAPI `/api/v1` routes, OpenAPI schema generation, database connectivity health.
+- **Security & Input Hardening (2 passed)**: Magic-bytes verification, upload limits, rate limiting, path traversal protection.
+- **Functional UI & Analytics (2 passed)**: UI status badge rendering and platform analytics calculations.
 
 ---
 
-## 🤝 Contributing
+## 📁 Repository Structure
 
-We welcome contributions! Here's how:
-
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit changes (`git commit -m 'Add AmazingFeature'`)
-4. Push to branch (`git push origin feature/AmazingFeature`)
-5. Open Pull Request
+```
+Charity-Chain/
+├── app_ui.py                   # Streamlit frontend application
+├── charity_tracker.py          # Core tracker domain engine (stabilized baseline)
+├── docker-compose.yml          # Local container topology (PostgreSQL, Redis, API)
+├── requirements.txt            # Runtime dependencies
+├── requirements-dev.txt        # Development, testing, and backend dependencies
+├── pytest.ini                  # Pytest configuration
+├── .env.example                # Documented configuration template (safe placeholders)
+├── .gitignore                  # Git ignore rules (secrets, logs, caches, dbs)
+│
+├── backend/                    # Phase 1 Modular Monolith Backend
+│   ├── Dockerfile              # Multi-stage production container
+│   ├── pyproject.toml          # Python packaging
+│   ├── alembic.ini             # Alembic migration config
+│   ├── alembic/                # Relational schema migrations
+│   └── app/
+│       ├── main.py             # FastAPI entry point, CORS, middlewares
+│       ├── api/                # REST v1 routers, schemas, envelopes
+│       ├── core/               # Config, currency, exceptions, logging, state machines
+│       ├── db/                 # Base, session pool, SQLAlchemy domain models
+│       └── integrations/       # Port/adapter interfaces (payments, AI, storage, notifications)
+│
+├── data/                       # Application data directory
+│   ├── charity.db              # Baseline TinyDB database (backed up at charity.db.bak)
+│   └── evidence/               # Evidence blob storage directory
+│
+├── docs/                       # Complete Phase 0 & Phase 1 Documentation Suite
+│   ├── ARCHITECTURE.md         # Full system architecture & Mermaid diagrams
+│   ├── DOMAIN_MODEL.md         # Entity specifications & business invariants
+│   ├── DATABASE_DESIGN.md      # PostgreSQL schema, indexes, ER diagram, migration strategy
+│   ├── API_DESIGN.md           # REST v1 endpoints, error codes, envelopes
+│   ├── CONFIGURATION.md        # Environment variables reference & validation rules
+│   ├── STATE_MACHINES.md       # Entity lifecycles & authorized actor matrix
+│   ├── INTEGRATION_DESIGN.md   # External provider abstractions & contracts
+│   ├── PHASE_0_AUDIT_REPORT.md # Initial codebase audit & gap analysis
+│   ├── PHASE_0_COMPLETION_REPORT.md # Phase 0 stabilization verification
+│   ├── PHASE_1_COMPLETION_REPORT.md # Phase 1 delivery & gate signoff
+│   ├── PHASE_STATUS.md         # Comprehensive task-by-task status ledger
+│   ├── TEST_REPORT.md          # Full 50-test execution report
+│   ├── IMPLEMENTATION_LOG.md   # Chronological decision & fix log
+│   ├── KNOWN_LIMITATIONS.md    # Known limitations & boundary conditions
+│   └── DEVELOPMENT_ROADMAP.md  # Multi-phase engineering roadmap (Phases 0–14)
+│
+└── tests/                      # Automated test suite
+    ├── conftest.py             # Shared pytest fixtures
+    ├── functional/             # UI & analytics tests
+    ├── integration/            # Workflow & FastAPI integration tests
+    ├── security/               # Security & input hardening tests
+    └── unit/                   # Unit tests (currency, AI, db, state machines, etc.)
+```
 
 ---
 
-## 🧑‍💻 Contributors
+## 📖 Documentation Index
 
-| Name | Role |
-|------|------|
-| **Meenal Sinha** | Project Lead & Developer |
+For in-depth architectural and domain specifications, refer to the documents in [`docs/`](docs/):
+- [System Architecture Specification](docs/ARCHITECTURE.md)
+- [Domain Model Specification](docs/DOMAIN_MODEL.md)
+- [Database Design & ER Diagram](docs/DATABASE_DESIGN.md)
+- [REST API v1 Specification](docs/API_DESIGN.md)
+- [Configuration Reference](docs/CONFIGURATION.md)
+- [State Machine & Governance Rules](docs/STATE_MACHINES.md)
+- [External Integration Design](docs/INTEGRATION_DESIGN.md)
+- [Phase 0 Completion Report](docs/PHASE_0_COMPLETION_REPORT.md)
+- [Phase 1 Completion Report](docs/PHASE_1_COMPLETION_REPORT.md)
+- [Comprehensive Test Report](docs/TEST_REPORT.md)
+
+---
+
+## 👥 User Roles & Governance
+
+1. **Donors**: Discover verified charitable projects, contribute via PayPal, track milestone progress, and receive cryptographic Proof-of-Impact certificates.
+2. **NGOs**: Create projects and milestones, submit photographs and documentation as evidence of completed work, and receive disbursements upon verification.
+3. **Reviewers / Verifiers**: Inspect AI forensic signals, review submitted evidence, approve/reject milestone deliverables, and trigger payment capture workflows.
+4. **Super Administrators**: Platform governance, organization onboarding, tax ID validation, and compliance audits.
 
 ---
 
 ## 📄 License
 
-This project is released under the **MIT License** — free to use and modify.
-
-See [LICENSE](LICENSE) file for details.
-
----
-
-## 🙏 Acknowledgments
-
-- **OpenCV** for image analysis
-- **Ultralytics** for YOLOv8
-- **Streamlit** for rapid UI development
-- **TinyDB** for lightweight database
-- **Plotly & Altair** for beautiful visualizations
-- **Folium** for interactive maps
-
----
-
-## 📞 Support
-
-- 🐛 **GitHub Issues**: [Create an issue](https://github.com/yourusername/charitychain/issues)
-- 📧 **Email**: support@charitychain.org
-
----
-
-**Built with ❤️ by the CharityChain Team**
-
-**Version**: 2.0 | **Status**: Working Demo 🚀
-
-⭐ **If you like this project, please give the repository a star!** ⭐
+This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.

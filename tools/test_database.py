@@ -103,9 +103,9 @@ print(f"\n" + "=" * 60)
 print(f"DIAGNOSIS:")
 print(f"=" * 60)
 
-if db.db and len(milestones) == 5:
+if db.db is not None and len(milestones) == 5:
     print(f"✅ Everything working! DatabaseManager reads 5 milestones.")
-elif db.db and len(milestones) == 0:
+elif db.db is not None and len(milestones) == 0:
     print(f"❌ DatabaseManager created but returns 0 milestones!")
     print(f"   Issue: TinyDB not reading file or file is empty")
     print(f"   Solution: Run emergency_force_load.py again")
