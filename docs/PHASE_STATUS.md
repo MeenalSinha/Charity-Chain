@@ -101,3 +101,21 @@
 | **4.9** | REST API Routing & OpenAPI Documentation | **COMPLETED** | Registered donations, payments, refunds, webhooks, funding, and admin reporting endpoints under `/api/v1`. All 72 routes verified in OpenAPI schema. |
 | **4.10** | Streamlit UI Contribution & Dashboard Integration | **COMPLETED** | Interactive PayPal donation workflow on Project Discovery page and comprehensive Donor Dashboard with financial KPI cards and refund request forms in `app_ui.py`. |
 | **4.11** | Comprehensive Automated Testing (133 Tests Passing) | **COMPLETED** | All 133 tests passed in 73.21s with 0 failures and 0 errors across all 19 test suites. |
+
+---
+
+## Phase 5: Evidence Management System (Secure Uploads, S3/MinIO Storage, Deduplication & Tamper-Evident Records)
+
+| Task ID | Task Description | Status | Verification Note |
+| :---:|:---|:---:|:---|
+| **5.1** | Storage Provider Architecture & S3/MinIO Adapters | **COMPLETED** | Synchronous `StorageProviderInterface` with `LocalStorageProvider` and `S3StorageProvider` (boto3 client with signature v4 and custom endpoint URL support for MinIO). Configurable presigned URLs. |
+| **5.2** | Binary Magic-Byte Inspection & Path Traversal Containment | **COMPLETED** | Binary magic-byte validation strictly enforcing PDF, JPEG, and PNG signatures while rejecting executables and scripts. Local storage keys strictly verified via `target.relative_to(self.base_dir)`. |
+| **5.3** | Database Models & Alembic Migration 005 | **COMPLETED** | Enriched `EvidenceFile` with multi-versioning, storage metadata, and soft-archival fields. Added `evidence_audit_events` table for SHA-256 hash chaining. Authored and verified migration `005_phase5_evidence_management`. |
+| **5.4** | Multi-File Batch Ingestion & Milestone Deduplication | **COMPLETED** | `EvidenceService.upload_evidence_files` handles multi-file batches with size limits and duplicate hash detection on milestones raising `ConflictException` (HTTP 409). |
+| **5.5** | Multi-Versioning & Non-Destructive Replacement | **COMPLETED** | `EvidenceService.upload_evidence_version` links successor versions (`version_number = parent.version_number + 1`) while keeping historical files intact on disk/S3. |
+| **5.6** | Real-Time Cryptographic Integrity Verification | **COMPLETED** | `EvidenceService.verify_evidence_integrity` recalculates SHA-256 hashes against stored bytes, detecting bit-rot or unauthorized disk tampering and logging `INTEGRITY_VERIFIED` or `INTEGRITY_TAMPERED`. |
+| **5.7** | Tamper-Evident SHA-256 Audit Hash Chain | **COMPLETED** | Deterministic SHA-256 ledger chaining each event to the preceding event hash. Mathematically verifiable continuity in `EvidenceService.get_audit_trail`. |
+| **5.8** | REST API Endpoints & OpenAPI Documentation | **COMPLETED** | Implemented `/api/v1/milestones/{id}/evidence`, `/api/v1/evidence/...` endpoints covering uploads, listings, downloads, versions, integrity checks, archival, and audit trail verification. |
+| **5.9** | Streamlit UI Evidence Management Integration | **COMPLETED** | Integrated Phase 5 Evidence Engine tab into `app_ui.py` featuring multi-file uploads, live integrity checking, replacement version submissions, and audit trail exploration. |
+| **5.10** | Comprehensive Automated Testing (157 Tests Passing) | **COMPLETED** | All 157 tests passed in 68.72s with 0 failures and 0 errors across 51 test files (133 previous + 24 new Phase 5 tests). |
+

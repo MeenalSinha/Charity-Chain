@@ -118,3 +118,4 @@ def downgrade() -> None:
         batch_op.drop_column('donor_name')
         batch_op.drop_column('status')
         batch_op.drop_column('project_id')
+

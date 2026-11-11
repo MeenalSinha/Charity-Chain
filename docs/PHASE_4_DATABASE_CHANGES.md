@@ -68,3 +68,4 @@ The migration includes a complete `downgrade()` implementation that:
 1. Drops the `webhook_events` table and its indexes.
 2. Removes the added columns from `payment_refunds`, `payment_captures`, `payment_orders`, and `donations`.
 Both forward migration and reverse downgrade are validated.
+

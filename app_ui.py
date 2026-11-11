@@ -39,6 +39,7 @@ from backend.app.api.schemas import (
 from backend.app.services.ngo_onboarding_service import NGOOnboardingService
 from backend.app.services.project_service import ProjectService
 from backend.app.services.donation_service import DonationService
+from backend.app.services.evidence_service import EvidenceService
 from backend.app.integrations.storage.local import LocalStorageProvider
 
 
@@ -1051,140 +1052,305 @@ def page_donor_dashboard():
 
 
 # ============================================================================
-# PAGE: SUBMIT EVIDENCE (Preserved from Phase 0/1/2)
+# PAGE: SUBMIT EVIDENCE & EVIDENCE MANAGEMENT (Phase 5 Engine + Legacy Demo)
 # ============================================================================
 
 def page_submit_evidence():
-    """NGO evidence submission with automated multi-indicator verification."""
-    st.header("📸 Submit Evidence of Completed Impact")
-    
-    if not RoleManager.require_role(['NGO', 'Reviewer']):
-        return
-    
-    user_id = st.session_state.get('user_id', 'demo_ngo')
-    if not SecurityValidator.check_rate_limit(user_id):
-        st.error(f"⚠️ Upload rate limit reached: maximum {Config.RATE_LIMIT_UPLOADS_PER_HOUR} uploads per hour.")
-        return
-    
-    db: DatabaseManager = st.session_state.db
-    milestones = db.get_all_milestones()
-    pending = [m for m in milestones if m.get('status') in ['PENDING', 'SUBMITTED', 'REJECTED']]
-    
-    if not pending:
-        st.info("No milestones currently awaiting evidence submission.")
-        return
-    
-    milestone_id = st.selectbox(
-        "Select Milestone for Evidence Submission",
-        [m['id'] for m in pending],
-        format_func=lambda x: f"#{x}: {next(m['description'] for m in pending if m['id']==x)[:50]}..."
-    )
-    selected = next(m for m in pending if m['id'] == milestone_id)
-    
-    st.markdown("---")
-    col1, col2 = st.columns([2, 1])
-    
-    with col1:
-        st.subheader("📤 Upload Visual Evidence")
-        evidence_file = st.file_uploader("Evidence Photograph (Required)", type=['jpg', 'jpeg', 'png'])
-        before_file = st.file_uploader("Baseline / 'Before' Photograph (Optional for comparative analysis)", type=['jpg', 'jpeg', 'png'])
+    """NGO evidence submission with automated multi-indicator verification and Phase 5 Evidence Management."""
+    st.header("📸 Evidence Management & Milestone Verification")
+
+    tab_engine, tab_legacy = st.tabs([
+        "🔒 Phase 5 Evidence Engine (PostgreSQL / S3)",
+        "🧪 Legacy Demo Milestones (TinyDB)"
+    ])
+
+    with tab_engine:
+        user_id, role, full_name, email = get_current_user_info()
+        if not user_id:
+            st.warning("🔒 Please sign in via the sidebar to manage evidence for your organization's projects.")
+        else:
+            with SessionFactory() as db:
+                user_orgs = NGOOnboardingService.list_user_organizations(db, user_id)
+
+            if not user_orgs and role != "ADMIN":
+                st.warning("⚠️ You must belong to a registered NGO organization to manage evidence.")
+            else:
+                org_options = {o.id: o.name for o in user_orgs}
+                if not org_options and role == "ADMIN":
+                    with SessionFactory() as db:
+                        from backend.app.db.models.users import Organization
+                        from sqlalchemy import select
+                        all_orgs = db.execute(select(Organization)).scalars().all()
+                        org_options = {o.id: o.name for o in all_orgs}
+
+                if not org_options:
+                    st.info("No organizations available. Please register an NGO organization first.")
+                else:
+                    sel_org_id = st.selectbox("Select Organization", options=list(org_options.keys()), format_func=lambda x: org_options[x], key="ev_org_sel")
+
+                    with SessionFactory() as db:
+                        org_projects = ProjectService.list_organization_projects(db, sel_org_id, user_id)
+
+                    if not org_projects:
+                        st.info("No projects found for this organization.")
+                    else:
+                        proj_options = {p.id: f"{p.title} [{p.status}]" for p in org_projects}
+                        sel_proj_id = st.selectbox("Select Project", options=list(proj_options.keys()), format_func=lambda x: proj_options[x], key="ev_proj_sel")
+
+                        with SessionFactory() as db:
+                            milestones = ProjectService.list_project_milestones(db, sel_proj_id, user_id)
+
+                        if not milestones:
+                            st.info("No milestones found for this project.")
+                        else:
+                            ms_options = {m.id: f"Milestone #{m.sequence_number}: {m.title} [{m.status}]" for m in milestones}
+                            sel_ms_id = st.selectbox("Select Milestone", options=list(ms_options.keys()), format_func=lambda x: ms_options[x], key="ev_ms_sel")
+                            selected_ms = next(m for m in milestones if m.id == sel_ms_id)
+
+                            st.markdown(f"**Objective:** {selected_ms.objective}")
+                            if selected_ms.deliverables:
+                                st.caption(f"**Deliverables:** {selected_ms.deliverables}")
+
+                            st.markdown("---")
+                            st.subheader("📤 Multi-File Evidence Upload")
+                            st.caption(f"Allowed types: JPEG, PNG, PDF • Max size: {settings.MAX_UPLOAD_SIZE_MB} MB • Batch limit: {settings.MAX_UPLOAD_BATCH_SIZE} files")
+
+                            uploaded_files = st.file_uploader(
+                                "Upload Evidence Files",
+                                accept_multiple_files=True,
+                                type=['jpg', 'jpeg', 'png', 'pdf'],
+                                key="p5_ev_uploader"
+                            )
+
+                            if uploaded_files:
+                                st.write(f"Selected **{len(uploaded_files)}** file(s):")
+                                for uf in uploaded_files:
+                                    st.caption(f"📄 **{uf.name}** ({len(uf.getvalue()) / (1024*1024):.2f} MB, {uf.type})")
+
+                                if st.button("🚀 Securely Upload & Record to Hash Chain", type="primary", use_container_width=True):
+                                    file_tuples = []
+                                    for uf in uploaded_files:
+                                        file_tuples.append((uf.getvalue(), uf.name, uf.type))
+
+                                    try:
+                                        with SessionFactory() as db:
+                                            res = EvidenceService.upload_evidence_files(
+                                                db=db,
+                                                milestone_id=sel_ms_id,
+                                                files=file_tuples,
+                                                uploader_id=user_id
+                                            )
+                                        st.success(f"✅ Successfully uploaded {res.total_uploaded} file(s) into immutable hash chain!")
+                                        time.sleep(1)
+                                        st.rerun()
+                                    except Exception as ex:
+                                        st.error(f"❌ Upload failed: {ex}")
+
+                            st.markdown("---")
+                            st.subheader("📂 Milestone Evidence Records")
+
+                            with SessionFactory() as db:
+                                evidence_records = EvidenceService.list_milestone_evidence(db, sel_ms_id, include_archived=True)
+
+                            if not evidence_records:
+                                st.info("No evidence submitted yet for this milestone.")
+                            else:
+                                for ev in evidence_records:
+                                    arch_badge = " 📦 [ARCHIVED]" if ev.is_archived else ""
+                                    with st.expander(f"📄 {ev.original_filename or ev.id} (v{ev.version_number}) — {ev.file_size_bytes/1024:.1f} KB [{ev.status}]{arch_badge}"):
+                                        c1, c2 = st.columns(2)
+                                        with c1:
+                                            st.write(f"**SHA-256 Hash:** `{ev.file_hash}`")
+                                            st.write(f"**Storage Provider:** `{ev.storage_provider}`")
+                                            st.write(f"**MIME Type:** `{ev.mime_type}`")
+                                        with c2:
+                                            st.write(f"**Uploaded At:** {ev.created_at}")
+                                            st.write(f"**Storage Key:** `{ev.storage_key}`")
+                                            st.write(f"**Version:** {ev.version_number}")
+
+                                        # Action buttons
+                                        b_col1, b_col2, b_col3 = st.columns(3)
+                                        with b_col1:
+                                            if st.button("🔍 Verify SHA-256 Integrity", key=f"verify_{ev.id}"):
+                                                with SessionFactory() as db:
+                                                    chk = EvidenceService.verify_evidence_integrity(db, ev.id, user_id)
+                                                if chk.is_valid:
+                                                    st.success(f"✅ Cryptographic Match! Recorded: `{chk.expected_hash[:16]}...` Computed: `{chk.computed_hash[:16]}...`")
+                                                else:
+                                                    st.error("❌ INTEGRITY VIOLATION DETECTED!")
+                                        with b_col2:
+                                            if not ev.is_archived:
+                                                if st.button("📦 Soft-Archive", key=f"arch_{ev.id}"):
+                                                    with SessionFactory() as db:
+                                                        EvidenceService.archive_evidence(db, ev.id, user_id, reason="Archived via UI")
+                                                    st.warning("Asset marked as archived.")
+                                                    st.rerun()
+
+                                        # Audit Trail Expander
+                                        with st.expander("📜 Tamper-Evident SHA-256 Audit Trail"):
+                                            with SessionFactory() as db:
+                                                audit_data = EvidenceService.get_audit_trail(db, ev.id)
+                                            if audit_data.is_chain_intact:
+                                                st.success(f"✅ Continuous Hash Chain Intact ({audit_data.total_events} events)")
+                                            else:
+                                                st.error("❌ HASH CHAIN TAMPERED!")
+                                            for a_ev in audit_data.events:
+                                                st.markdown(f"**{a_ev.created_at.strftime('%Y-%m-%d %H:%M:%S')}** — `{a_ev.event_type}`")
+                                                st.caption(f"Prev Hash: `{a_ev.previous_event_hash[:16]}...` ➔ Current Hash: `{a_ev.current_event_hash[:16]}...`")
+                                                if a_ev.details_json:
+                                                    st.json(a_ev.details_json)
+
+                                        # New Version Expander
+                                        if not ev.is_archived:
+                                            with st.expander("🔄 Upload Replacement Version"):
+                                                with st.form(f"form_version_{ev.id}"):
+                                                    v_file = st.file_uploader("Select Replacement File", type=['jpg', 'jpeg', 'png', 'pdf'], key=f"v_file_{ev.id}")
+                                                    v_reason = st.text_input("Reason for New Version", placeholder="Clarified high-resolution photos", key=f"v_reason_{ev.id}")
+                                                    submit_v = st.form_submit_button("Submit New Version", type="primary")
+                                                    if submit_v and v_file:
+                                                        try:
+                                                            with SessionFactory() as db:
+                                                                new_v = EvidenceService.upload_evidence_version(
+                                                                    db=db,
+                                                                    parent_evidence_id=ev.id,
+                                                                    file_bytes=v_file.getvalue(),
+                                                                    filename=v_file.name,
+                                                                    mime_type=v_file.type,
+                                                                    uploader_id=user_id,
+                                                                    reason=v_reason
+                                                                )
+                                                            st.success(f"✅ Created version {new_v.version_number}!")
+                                                            time.sleep(1)
+                                                            st.rerun()
+                                                        except Exception as e:
+                                                            st.error(f"Version upload failed: {e}")
+
+    with tab_legacy:
+        user_id = st.session_state.get('user_id', 'demo_ngo')
+        if not SecurityValidator.check_rate_limit(user_id):
+            st.error(f"⚠️ Upload rate limit reached: maximum {Config.RATE_LIMIT_UPLOADS_PER_HOUR} uploads per hour.")
+            return
+        
+        db: DatabaseManager = st.session_state.db
+        milestones = db.get_all_milestones()
+        pending = [m for m in milestones if m.get('status') in ['PENDING', 'SUBMITTED', 'REJECTED']]
+        
+        if not pending:
+            st.info("No milestones currently awaiting evidence submission.")
+            return
+        
+        milestone_id = st.selectbox(
+            "Select Milestone for Evidence Submission",
+            [m['id'] for m in pending],
+            format_func=lambda x: f"#{x}: {next(m['description'] for m in pending if m['id']==x)[:50]}...",
+            key="legacy_ms_sel"
+        )
+        selected = next(m for m in pending if m['id'] == milestone_id)
+        
+        st.markdown("---")
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            st.subheader("📤 Upload Visual Evidence")
+            evidence_file = st.file_uploader("Evidence Photograph (Required)", type=['jpg', 'jpeg', 'png'], key="legacy_ev_file")
+            before_file = st.file_uploader("Baseline / 'Before' Photograph (Optional for comparative analysis)", type=['jpg', 'jpeg', 'png'], key="legacy_before_file")
+            
+            if evidence_file:
+                file_bytes = evidence_file.getvalue()
+                is_valid_mime, mime = SecurityValidator.validate_mime_type(file_bytes)
+                is_valid_size, size_mb = SecurityValidator.validate_file_size(file_bytes)
+                
+                if not is_valid_mime:
+                    st.error(f"❌ Unsupported image format: {mime}. Allowed: JPEG, PNG.")
+                    return
+                if not is_valid_size:
+                    st.error(f"❌ File exceeds limit: {size_mb:.2f}MB (max {Config.MAX_UPLOAD_SIZE_MB}MB).")
+                    return
+                
+                st.image(evidence_file, caption="Uploaded Evidence Preview", use_container_width=True)
+                st.caption(f"Format: {mime} • Size: {size_mb:.2f} MB")
+        
+        with col2:
+            st.subheader("📍 Target Milestone Coordinates")
+            lat = selected.get('latitude', 0.0)
+            lon = selected.get('longitude', 0.0)
+            st.metric("Latitude", f"{lat:.6f}")
+            st.metric("Longitude", f"{lon:.6f}")
+            st.caption(f"Verification tolerance: within {Config.GPS_RADIUS_METERS:.0f}m if EXIF GPS metadata is present.")
         
         if evidence_file:
-            file_bytes = evidence_file.getvalue()
-            is_valid_mime, mime = SecurityValidator.validate_mime_type(file_bytes)
-            is_valid_size, size_mb = SecurityValidator.validate_file_size(file_bytes)
-            
-            if not is_valid_mime:
-                st.error(f"❌ Unsupported image format: {mime}. Allowed: JPEG, PNG.")
-                return
-            if not is_valid_size:
-                st.error(f"❌ File exceeds limit: {size_mb:.2f}MB (max {Config.MAX_UPLOAD_SIZE_MB}MB).")
-                return
-            
-            st.image(evidence_file, caption="Uploaded Evidence Preview", use_container_width=True)
-            st.caption(f"Format: {mime} • Size: {size_mb:.2f} MB")
-    
-    with col2:
-        st.subheader("📍 Target Milestone Coordinates")
-        lat = selected.get('latitude', 0.0)
-        lon = selected.get('longitude', 0.0)
-        st.metric("Latitude", f"{lat:.6f}")
-        st.metric("Longitude", f"{lon:.6f}")
-        st.caption(f"Verification tolerance: within {Config.GPS_RADIUS_METERS:.0f}m if EXIF GPS metadata is present.")
-    
-    if evidence_file:
-        st.markdown("---")
-        if st.button("🚀 Analyze & Submit Evidence", type="primary", use_container_width=True):
-            evidence_bytes = evidence_file.getvalue()
-            before_bytes = before_file.getvalue() if before_file else None
-            
-            SecurityValidator.record_upload(user_id)
-            
-            # Step 1: Storage & Content Addressing
-            with st.spinner("Computing cryptographic content address & storing evidence..."):
-                progress = st.progress(20)
-                cid, access_url, storage_mode = EnhancedIPFSManager.upload_to_web3storage(
-                    evidence_bytes, f"evidence_{milestone_id}.jpg"
-                )
-                progress.progress(50)
-                st.caption(f"Content Address: `{cid}` ({storage_mode})")
-            
-            # Step 2: Multi-Indicator Verification
-            with st.spinner("Executing computer vision & forensic checks..."):
-                verifier: EnhancedAIVerifier = st.session_state.verifier
-                result = verifier.run_parallel_verification(
-                    evidence_bytes=evidence_bytes,
-                    before_bytes=before_bytes,
-                    expected_lat=selected.get('latitude') if selected.get('latitude') != 0 else None,
-                    expected_lon=selected.get('longitude') if selected.get('longitude') != 0 else None
-                )
-                progress.progress(85)
-                
-                # Persist verification report
-                db.submit_evidence(milestone_id, cid, result)
-                progress.progress(100)
-                
-                Logger.log('INFO', f"Evidence submitted for Milestone #{milestone_id}", {
-                    'confidence': result.get('confidence'),
-                    'pass': result.get('pass')
-                })
-            
             st.markdown("---")
-            st.subheader("🤖 AI Verification Analysis Report")
-            
-            # Visual Panels
-            col_g1, col_g2 = st.columns(2)
-            with col_g1:
-                fig = st.session_state.viz.create_confidence_gauge(result['confidence'])
-                st.plotly_chart(fig, use_container_width=True)
-            with col_g2:
-                fig = st.session_state.viz.create_confidence_explanation_panel(result['checks'], result['confidence'])
-                st.plotly_chart(fig, use_container_width=True)
-            
-            # Detailed Forensic Check Badges
-            st.subheader("🔍 Individual Forensic Check Findings")
-            for check_name, check_data in result.get('checks', {}).items():
-                status = check_data.get('status', 'PASSED' if check_data.get('passed') else 'FAILED')
-                title = f"{check_name.replace('_', ' ').title()} — [{status}]"
-                with st.expander(title, expanded=True):
-                    if status == "PASSED":
-                        st.success(f"✅ PASSED: {check_data.get('message', 'Check passed successfully.')}")
-                    elif status == "FAILED":
-                        st.error(f"❌ FAILED: {check_data.get('message', 'Indicator threshold failed.')}")
-                    elif status == "UNAVAILABLE":
-                        st.warning(f"⚠️ UNAVAILABLE: {check_data.get('message', 'Inspection capability currently unavailable.')}")
-                    elif status == "NOT_APPLICABLE":
-                        st.info(f"ℹ️ NOT APPLICABLE: {check_data.get('message', 'Check was not required for this submission.')}")
-                    st.json(check_data)
-            
-            # Annotated Object Detection Overlay
-            if result.get('annotated_image'):
-                st.subheader("🎯 Object Detection Inspection Overlay")
-                st.image(result['annotated_image'], use_container_width=True)
-            
-            st.success("✅ Evidence submitted and recorded in the audit trail. Human Reviewers can now review findings.")
-            time.sleep(2)
-            st.rerun()
+            if st.button("🚀 Analyze & Submit Evidence", type="primary", use_container_width=True, key="legacy_btn_submit"):
+                evidence_bytes = evidence_file.getvalue()
+                before_bytes = before_file.getvalue() if before_file else None
+                
+                SecurityValidator.record_upload(user_id)
+                
+                # Step 1: Storage & Content Addressing
+                with st.spinner("Computing cryptographic content address & storing evidence..."):
+                    progress = st.progress(20)
+                    cid, access_url, storage_mode = EnhancedIPFSManager.upload_to_web3storage(
+                        evidence_bytes, f"evidence_{milestone_id}.jpg"
+                    )
+                    progress.progress(50)
+                    st.caption(f"Content Address: `{cid}` ({storage_mode})")
+                
+                # Step 2: Multi-Indicator Verification
+                with st.spinner("Executing computer vision & forensic checks..."):
+                    verifier: EnhancedAIVerifier = st.session_state.verifier
+                    result = verifier.run_parallel_verification(
+                        evidence_bytes=evidence_bytes,
+                        before_bytes=before_bytes,
+                        expected_lat=selected.get('latitude') if selected.get('latitude') != 0 else None,
+                        expected_lon=selected.get('longitude') if selected.get('longitude') != 0 else None
+                    )
+                    progress.progress(85)
+                    
+                    # Persist verification report
+                    db.submit_evidence(milestone_id, cid, result)
+                    progress.progress(100)
+                    
+                    Logger.log('INFO', f"Evidence submitted for Milestone #{milestone_id}", {
+                        'confidence': result.get('confidence'),
+                        'pass': result.get('pass')
+                    })
+                
+                st.markdown("---")
+                st.subheader("🤖 AI Verification Analysis Report")
+                
+                # Visual Panels
+                col_g1, col_g2 = st.columns(2)
+                with col_g1:
+                    fig = st.session_state.viz.create_confidence_gauge(result['confidence'])
+                    st.plotly_chart(fig, use_container_width=True)
+                with col_g2:
+                    fig = st.session_state.viz.create_confidence_explanation_panel(result['checks'], result['confidence'])
+                    st.plotly_chart(fig, use_container_width=True)
+                
+                # Detailed Forensic Check Badges
+                st.subheader("🔍 Individual Forensic Check Findings")
+                for check_name, check_data in result.get('checks', {}).items():
+                    status = check_data.get('status', 'PASSED' if check_data.get('passed') else 'FAILED')
+                    title = f"{check_name.replace('_', ' ').title()} — [{status}]"
+                    with st.expander(title, expanded=True):
+                        if status == "PASSED":
+                            st.success(f"✅ PASSED: {check_data.get('message', 'Check passed successfully.')}")
+                        elif status == "FAILED":
+                            st.error(f"❌ FAILED: {check_data.get('message', 'Indicator threshold failed.')}")
+                        elif status == "UNAVAILABLE":
+                            st.warning(f"⚠️ UNAVAILABLE: {check_data.get('message', 'Inspection capability currently unavailable.')}")
+                        elif status == "NOT_APPLICABLE":
+                            st.info(f"ℹ️ NOT APPLICABLE: {check_data.get('message', 'Check was not required for this submission.')}")
+                        st.json(check_data)
+                
+                # Annotated Object Detection Overlay
+                if result.get('annotated_image'):
+                    st.subheader("🎯 Object Detection Inspection Overlay")
+                    st.image(result['annotated_image'], use_container_width=True)
+                
+                st.success("✅ Evidence submitted and recorded in the audit trail. Human Reviewers can now review findings.")
+                time.sleep(2)
+                st.rerun()
 
 
 # ============================================================================

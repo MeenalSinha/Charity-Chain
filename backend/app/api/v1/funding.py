@@ -68,3 +68,4 @@ def get_user_donation_summary(
             "currency": current_user.profile.preferred_currency if current_user.profile else "USD"
         }
     )
+

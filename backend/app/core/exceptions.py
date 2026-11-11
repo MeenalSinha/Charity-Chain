@@ -18,12 +18,20 @@ class CharityChainException(Exception):
 
 
 class EntityNotFoundError(CharityChainException):
-    def __init__(self, entity_name: str, entity_id: Any):
+    def __init__(self, entity_name: str, entity_id: Any = None):
+        if entity_id is not None:
+            msg = f"{entity_name} with identifier '{entity_id}' not found."
+            ent_name = entity_name
+            ent_id = str(entity_id)
+        else:
+            msg = entity_name
+            ent_name = "Resource"
+            ent_id = "unknown"
         super().__init__(
-            message=f"{entity_name} with identifier '{entity_id}' not found.",
+            message=msg,
             code="ENTITY_NOT_FOUND",
             status_code=404,
-            details={"entity": entity_name, "id": str(entity_id)}
+            details={"entity": ent_name, "id": ent_id}
         )
 
 
@@ -124,12 +132,23 @@ class ValidationException(CharityChainException):
         )
 
 
+class StorageException(CharityChainException):
+    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None, status_code: int = 500):
+        super().__init__(
+            message=message,
+            code="STORAGE_ERROR",
+            status_code=status_code,
+            details=details
+        )
+
+
 # Standard Aliases
 AuthenticationException = AuthenticationError
 ForbiddenException = PermissionDeniedError
 NotFoundException = EntityNotFoundError
 InvalidStateTransitionException = InvalidStateTransitionError
 UnauthorizedTransitionException = UnauthorizedTransitionError
+InternalServerException = CharityChainException
 
 from backend.app.integrations.payments.exceptions import (
     CurrencyMismatchException, PaymentException, InvalidPaymentAmountException,

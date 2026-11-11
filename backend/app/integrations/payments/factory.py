@@ -24,3 +24,4 @@ def set_payment_provider(provider: PaymentProviderInterface) -> None:
     """Overrides the active payment provider (useful for testing and mocks)."""
     global _provider_instance
     _provider_instance = provider
+

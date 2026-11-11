@@ -162,3 +162,19 @@
    - Authored Alembic migration `004_phase4_payment_and_donations.py` modifying donations, payment orders, captures, refunds, and creating `webhook_events`.
 11. **Comprehensive Automated Testing**:
    - Added 10 new test suites (26 tests). All 133 tests passing with 0 failures, 0 errors.
+
+## Phase 5: Evidence Management System (Secure Uploads, S3/MinIO Storage, Deduplication & Tamper-Evident Records)
+- **Status**: COMPLETED
+- **Key Changes**:
+  - Implemented `StorageProviderInterface` with synchronous methods for zero-deadlock integration with SQLAlchemy.
+  - Implemented `LocalStorageProvider` with binary magic-byte inspection (PDF, PNG, JPEG), filename sanitization, and canonical path containment (`target.relative_to(self.base_dir)`).
+  - Implemented `S3StorageProvider` via `boto3` supporting AWS S3 and MinIO with short-lived presigned URLs (60s to 86,400s) and user metadata storage.
+  - Implemented `get_storage_provider()`, `set_storage_provider()`, and `reset_storage_provider()` factory.
+  - Enriched `EvidenceFile` model with `original_filename`, `storage_key`, `storage_provider`, `storage_version_id`, `detected_mime_type`, `version_number`, `parent_evidence_id`, `is_archived`, `archived_at`, `quarantine_reason`.
+  - Created `EvidenceAuditEvent` model with deterministic SHA-256 hash chaining.
+  - Created and executed Alembic migration `005_phase5_evidence_management` (forward and rollback verified).
+  - Implemented `EvidenceService` with multi-file batch uploads, duplicate detection on milestones raising `ConflictException`, multi-versioning, real-time SHA-256 integrity verification, soft-archival, and unbroken audit chain mathematical validation.
+  - Mounted REST API endpoints under `/api/v1/milestones/{id}/evidence` and `/api/v1/evidence/...`.
+  - Integrated interactive Phase 5 Evidence Engine into `app_ui.py` alongside legacy demo tab.
+  - Added 24 new automated tests across 8 suites. Total test suite: 157 / 157 passed (100%) in 68.72s.
+

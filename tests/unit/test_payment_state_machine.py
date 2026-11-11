@@ -105,3 +105,4 @@ def test_payment_capture_valid_and_invalid_transitions():
         StateMachineValidator.validate_payment_capture_transition(
             PaymentCaptureStatus.REFUNDED, PaymentCaptureStatus.COMPLETED
         )
+

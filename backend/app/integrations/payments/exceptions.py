@@ -67,3 +67,4 @@ class CurrencyMismatchException(PaymentException):
             code="CURRENCY_MISMATCH",
             details={"expected": expected, "actual": actual}
         )
+

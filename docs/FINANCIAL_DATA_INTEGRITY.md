@@ -66,3 +66,4 @@ The endpoint `GET /api/v1/projects/{id}/funding` returns:
   ]
 }
 ```
+

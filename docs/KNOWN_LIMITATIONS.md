@@ -2,9 +2,16 @@
 
 This document maintains an accurate, truthful record of functionality that is currently simulated, incomplete, or requires future phase development.
 
-## 1. Storage & IPFS
-- **Current Status**: Real Web3.Storage/Pinata requires active API tokens. When in default/demo mode or when tokens are unconfigured, local SHA-256 content hashes are generated and stored locally (`data/evidence/`).
-- **Target (Phase 5)**: S3-compatible object storage (MinIO/AWS S3) with cryptographic content-addressing and metadata persistence.
+## 1. Storage & IPFS (Phase 5 Completed)
+- **Current Status**:
+  - `StorageProviderInterface` implemented with unified synchronous methods.
+  - `LocalStorageProvider` handles local disk storage with strict binary magic-byte inspection (PDF, PNG, JPEG), filename sanitization, and canonical path containment (`is_relative_to(base_dir)`).
+  - `S3StorageProvider` supports AWS S3 and MinIO with short-lived presigned URLs and custom user metadata.
+  - No unsupported claims of public blockchain or IPFS immutability. Provenance is enforced through cryptographic SHA-256 content addressing and deterministic audit hash chains.
+- **Boundaries Preserved**:
+  - Live AI verification of uploaded evidence is deferred to Phase 6.
+  - Independent reviewer approval and human review workflows are deferred to Phase 7.
+  - Milestone fund disbursements to NGOs are deferred to Phase 8.
 
 ## 2. Blockchain & Smart Contracts
 - **Current Status**: No smart contracts are deployed to an active blockchain. Ethereum/Polygon mentions in the original prototype were simulated using local Python logic and TinyDB. The current release explicitly labels these as "Milestone-Locked Funds" and "Proof-of-Impact Digital Certificates" rather than true on-chain transactions or NFTs.

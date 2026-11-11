@@ -92,3 +92,4 @@ CREATE TABLE webhook_events (
 | `PAYMENT.CAPTURE.COMPLETED` | `capture` | Verifies matching `PaymentOrder` and ensures `Donation` is marked `PAID` |
 | `PAYMENT.CAPTURE.DENIED` | `capture` | Marks local capture as `DECLINED` and donation as `FAILED` |
 | `PAYMENT.CAPTURE.REFUNDED` | `refund` | Records external refund event and verifies funding totals are decremented |
+

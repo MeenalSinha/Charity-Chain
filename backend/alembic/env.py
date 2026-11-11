@@ -49,16 +49,11 @@ def do_run_migrations(connection: Connection) -> None:
         context.run_migrations()
 
 
-async def run_async_migrations() -> None:
-    """Run migrations in 'online' mode with async engine."""
-    from backend.app.db.session import async_engine
-    async with async_engine.connect() as connection:
-        await connection.run_sync(do_run_migrations)
-
-
 def run_migrations_online() -> None:
-    """Run migrations in 'online' mode."""
-    asyncio.run(run_async_migrations())
+    """Run migrations in 'online' mode with synchronous engine."""
+    from backend.app.db.session import engine
+    with engine.connect() as connection:
+        do_run_migrations(connection)
 
 
 if context.is_offline_mode():

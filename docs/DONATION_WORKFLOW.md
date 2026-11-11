@@ -99,3 +99,4 @@ CharityChain eliminates this vulnerability through dual-path reconciliation:
 1. **Primary Browser Return**: If the donor returns normally, `POST /api/v1/payments/orders/{order_identifier}/capture` executes and marks the donation `PAID`.
 2. **Fallback Asynchronous Webhook**: If the donor closes the tab, PayPal delivers a `CHECKOUT.ORDER.APPROVED` webhook to `/api/v1/webhooks/paypal`. The webhook processor automatically invokes `capture_donation_payment()`, capturing the funds and updating project balances without donor browser interaction.
 3. **Idempotency Guarantee**: If both the browser return and the webhook fire concurrently, the second execution detects that the order is already captured, avoids duplicate gateway capture requests, and returns the existing capture record.
+

@@ -65,7 +65,7 @@ class Settings(BaseSettings):
     PASSWORD_MAX_LENGTH: int = Field(default=128, description="Maximum password length")
 
     # 4. Storage & Files
-    STORAGE_PROVIDER: Literal["local", "s3", "pinata"] = Field(
+    STORAGE_PROVIDER: Literal["local", "s3", "minio", "pinata"] = Field(
         default="local",
         description="Selected file storage backend"
     )
@@ -79,6 +79,8 @@ class Settings(BaseSettings):
     )
     MAX_UPLOAD_SIZE_MB: float = Field(default=10.0, description="Max upload size in MB")
     MAX_DOCUMENT_SIZE_MB: float = Field(default=10.0, description="Max document upload size in MB")
+    MAX_UPLOAD_BATCH_SIZE: int = Field(default=10, description="Maximum number of files per evidence batch upload")
+    PRESIGNED_URL_EXPIRATION_SECONDS: int = Field(default=3600, ge=60, le=86400, description="Expiration time for presigned storage URLs")
     ALLOWED_MIME_TYPES: List[str] = Field(
         default=["image/jpeg", "image/png", "application/pdf"],
         description="Permitted upload MIME types"
@@ -161,6 +163,9 @@ class Settings(BaseSettings):
                 raise ValueError("Insecure default SECRET_KEY detected in production environment! A strong key >= 32 characters is required.")
             if self.DEBUG:
                 raise ValueError("DEBUG mode must be disabled (False) in production!")
+            if self.STORAGE_PROVIDER in ("s3", "minio"):
+                if not self.S3_ACCESS_KEY or not self.S3_SECRET_KEY:
+                    raise ValueError("S3_ACCESS_KEY and S3_SECRET_KEY must be provided for S3/MinIO storage in production!")
         return self
 
 

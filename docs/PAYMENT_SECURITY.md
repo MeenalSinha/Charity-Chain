@@ -38,3 +38,4 @@ Every critical financial event generates an immutable audit record in the `audit
 Platform administrators have access to dedicated endpoints:
 - `GET /api/v1/admin/payments`: Real-time transaction inspection.
 - `GET /api/v1/admin/payment-reconciliation`: Discrepancy detection between local records and gateway capture states.
+

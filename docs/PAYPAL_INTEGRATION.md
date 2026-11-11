@@ -132,3 +132,4 @@ Refunds are executed against settled captures using `POST /v2/payments/captures/
   - 404 $\rightarrow$ `PaymentOrderNotFoundException`
   - 422 $\rightarrow$ `PaymentProviderException` (with parsed issue details)
   - 5xx / timeouts $\rightarrow$ `PaymentProviderException`
+

@@ -783,3 +783,73 @@ class ProjectFundingSummaryResponse(BaseModel):
     milestones: List[MilestoneFundingSummary]
 
 
+# =====================================================================
+# Phase 5: Evidence Management Schemas
+# =====================================================================
+
+class EvidenceAuditEventResponse(BaseModel):
+    id: str
+    evidence_id: str
+    actor_id: Optional[str] = None
+    event_type: str
+    details_json: Optional[Dict[str, Any]] = None
+    previous_event_hash: str
+    current_event_hash: str
+    created_at: datetime
+
+
+class EvidenceFileResponse(BaseModel):
+    id: str
+    milestone_id: str
+    uploader_id: Optional[str] = None
+    original_filename: Optional[str] = None
+    storage_key: Optional[str] = None
+    storage_provider: str
+    file_path: str
+    file_hash: str
+    content_address: str
+    mime_type: str
+    file_size_bytes: int
+    version_number: int
+    parent_evidence_id: Optional[str] = None
+    status: str
+    is_archived: bool
+    archived_at: Optional[datetime] = None
+    quarantine_reason: Optional[str] = None
+    created_at: datetime
+    download_url: Optional[str] = None
+
+
+class EvidenceBatchUploadResponse(BaseModel):
+    milestone_id: str
+    total_uploaded: int
+    items: List[EvidenceFileResponse]
+
+
+class EvidenceIntegrityResponse(BaseModel):
+    evidence_id: str
+    expected_hash: str
+    computed_hash: str
+    is_valid: bool
+    checked_at: datetime
+    storage_provider: str
+
+
+class EvidenceVersionHistoryResponse(BaseModel):
+    evidence_id: str
+    current_version: int
+    versions: List[EvidenceFileResponse]
+
+
+class EvidenceAuditLogResponse(BaseModel):
+    evidence_id: str
+    is_chain_intact: bool
+    total_events: int
+    events: List[EvidenceAuditEventResponse]
+
+
+class ArchiveEvidenceRequest(BaseModel):
+    reason: Optional[str] = Field(None, max_length=255)
+
+
+

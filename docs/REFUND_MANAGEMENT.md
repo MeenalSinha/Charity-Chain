@@ -52,3 +52,4 @@ When a refund is finalized:
 - `POST /api/v1/donations/{id}/refunds`: Request full or partial refund (authenticated donor or platform admin).
 - `GET /api/v1/refunds/{id}`: Inspect details of a specific refund.
 - `GET /api/v1/admin/refunds`: Platform admin query listing all refunds across projects with filtering and pagination.
+
