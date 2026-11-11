@@ -69,3 +69,4 @@ def test_tamper_detection_in_audit_chain():
     # Tamper with timestamp
     tampered_time = compute_audit_hash(prev, ev_id, "actor-1", "UPLOADED", {"score": 90}, "2026-11-11T12:00:01")
     assert tampered_time != original_hash
+

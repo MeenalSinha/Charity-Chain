@@ -99,8 +99,19 @@ class Settings(BaseSettings):
     S3_BUCKET_NAME: str = Field(default="charitychain-evidence", description="S3 Bucket")
     S3_REGION: str = Field(default="us-east-1", description="S3 Region")
 
-    # 5. AI & Computer Vision Verification Thresholds
+    # 5. AI & Computer Vision Verification Thresholds (Phase 6)
     YOLO_MODEL_PATH: str = Field(default="yolov8n.pt", description="YOLO weights file path")
+    YOLO_EXPECTED_HASH: Optional[str] = Field(
+        default="f59b3d833e2ff32e194b5bb8e08d211dc7c5bdf144b90d2c8412c47ccfc83b36",
+        description="Expected SHA-256 integrity hash for pinned YOLO model artifact"
+    )
+    YOLO_CONFIDENCE_THRESHOLD: float = Field(
+        default=0.25,
+        ge=0.0,
+        le=1.0,
+        description="Per-detection confidence threshold for YOLOv8"
+    )
+    YOLO_DEVICE: str = Field(default="cpu", description="Execution device for YOLO inference (cpu, cuda)")
     VERIFICATION_CONFIDENCE_THRESHOLD: float = Field(
         default=0.65,
         ge=0.0,
@@ -115,15 +126,35 @@ class Settings(BaseSettings):
         default=10,
         description="pHash Hamming distance threshold for before/after progression"
     )
+    SSIM_SIMILARITY_THRESHOLD: float = Field(
+        default=0.60,
+        ge=0.0,
+        le=1.0,
+        description="Structural Similarity Index (SSIM) threshold for image comparison"
+    )
     GPS_RADIUS_METERS: float = Field(
         default=1000.0,
         description="Geofence proximity radius in meters for evidence verification"
     )
     MIN_DETECTIONS: int = Field(default=1, description="Minimum relevant detected objects")
+    VERIFICATION_PIPELINE_VERSION: str = Field(default="v6.0.0", description="Current AI verification pipeline version")
+    AI_PROVIDER: str = Field(default="yolo_forensics", description="Active AI verification provider identifier")
+    CALIBRATION_VERSION: str = Field(default="heuristic_v1_unvalidated", description="Active calibration methodology version")
+    CALIBRATION_STATUS: str = Field(default="UNVALIDATED", description="Calibration statistical status (UNVALIDATED, EMPIRICALLY_CALIBRATED)")
+    MAX_IMAGE_PIXELS: int = Field(default=25000000, description="Maximum allowed decoded image pixels to prevent decompression bombs")
+    MAX_PDF_PAGES: int = Field(default=10, description="Maximum permitted pages to render for PDF evidence verification")
+    DIAGNOSTIC_ARTIFACTS_DIR: str = Field(default="storage/artifacts", description="Filesystem directory for diagnostic visualizations")
 
-    # AI API Keys
+    # LLM Explainability Settings (Optional)
+    LLM_PROVIDER: Optional[str] = Field(default="none", description="Optional LLM explanation provider ('none', 'openai', 'gemini')")
+    LLM_MODEL_NAME: str = Field(default="gpt-4o-mini", description="Model name for LLM explanations")
+    LLM_TIMEOUT_SECONDS: float = Field(default=20.0, description="Timeout for external LLM API requests in seconds")
     OPENAI_API_KEY: Optional[str] = Field(default=None, description="OpenAI API Key")
     GEMINI_API_KEY: Optional[str] = Field(default=None, description="Google Gemini API Key")
+
+    # Background Verification Job Settings
+    VERIFICATION_JOB_MAX_ATTEMPTS: int = Field(default=3, description="Maximum retry attempts for failed verification jobs")
+    VERIFICATION_JOB_TIMEOUT_SECONDS: int = Field(default=120, description="Processing timeout for verification jobs in seconds")
 
     # 6. Payment & Financial Contracts (Phase 4 PayPal REST API)
     PAYPAL_MODE: Literal["sandbox", "live"] = Field(default="sandbox", description="PayPal mode")

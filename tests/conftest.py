@@ -66,6 +66,17 @@ def sample_png_bytes():
 
 
 @pytest.fixture
+def sample_pdf_bytes():
+    """Generates a valid synthetic 1-page PDF in memory."""
+    from pypdf import PdfWriter
+    writer = PdfWriter()
+    writer.add_blank_page(width=200, height=200)
+    buffer = BytesIO()
+    writer.write(buffer)
+    return buffer.getvalue()
+
+
+@pytest.fixture
 def ai_verifier():
     """Provides an instance of EnhancedAIVerifier."""
     return EnhancedAIVerifier()

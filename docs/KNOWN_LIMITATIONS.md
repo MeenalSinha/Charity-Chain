@@ -17,13 +17,22 @@ This document maintains an accurate, truthful record of functionality that is cu
 - **Current Status**: No smart contracts are deployed to an active blockchain. Ethereum/Polygon mentions in the original prototype were simulated using local Python logic and TinyDB. The current release explicitly labels these as "Milestone-Locked Funds" and "Proof-of-Impact Digital Certificates" rather than true on-chain transactions or NFTs.
 - **Target (Phase 4 & 9)**: Real payment gateway escrow/authorization holds (PayPal REST API) and cryptographically verifiable digital certificates.
 
-## 3. Computer Vision & AI Verification
+## 3. Computer Vision & AI Verification (Phase 6 Completed)
 - **Current Status**:
-  - YOLOv8 (`yolov8n.pt`) is loaded locally for genuine object detection. If weights are missing, the check is marked `UNAVAILABLE`, not fabricated.
-  - Error Level Analysis (ELA) and perceptual hash (pHash) are implemented as image forensics indicators, but cannot definitively prove forgery alone.
-  - EXIF GPS parsing extracts latitude and longitude when present. Modern smartphones often strip EXIF GPS during upload or social sharing. When missing, the status is marked `UNAVAILABLE` rather than defaulting to hardcoded distances.
-  - No live LLM (OpenAI/Gemini) is connected by default. Unconfigured queries return clear rule-based system status notes.
-- **Target (Phase 6)**: Multi-model ensemble with cloud-hosted inference, robust EXIF forensics, reverse-image lookup, and LLM multimodal verification.
+  - `MultiIndicatorAIProvider` integrates YOLOv8n object detection with SHA-256 pinned weights validation (`f59b3d833e2ff32e194b5bb8e08d211dc7c5bdf144b90d2c8412c47ccfc83b36`), JPEG Error Level Analysis (ELA) forensics, 64-bit DCT perceptual hashing (pHash), Structural Similarity Index (SSIM) progress comparison, authentic EXIF and GPS proximity verification, safe bounded PDF document inspection, and grounded Explainable AI (XAI) summaries.
+  - Asynchronous background execution via durable `VerificationJob` queue with state tracking and retry limits.
+  - Cryptographic audit trail appending (`AI_VERIFIED` event chained to `evidence_audit_events`).
+  - Streamlit UI and legacy `EnhancedAIVerifier` delegate directly to backend engine.
+- **Honest Forensic Limitations & Disclosures**:
+  - **Calibration Status**: All reports explicitly output `calibration_status = "UNVALIDATED"`. Confidence scores represent heuristic multi-indicator weighted aggregations, not calibrated empirical Bayes probabilities.
+  - **Object Vocabulary**: YOLOv8n is pretrained on the 80 COCO classes. It cannot identify domain-specific medical equipment, educational curricula, or well pump components. Missing classes are reported transparently.
+  - **ELA Format Boundaries**: Error Level Analysis is strictly mathematically applicable to lossy JPEG formats. PNG, WebP, and PDF return `NOT_APPLICABLE` without false positives.
+  - **Metadata Stripping**: Social messaging apps and mobile web uploads frequently strip EXIF metadata. Absence of GPS coordinates yields `INCONCLUSIVE` geospatial checks rather than failure.
+- **Boundaries Preserved**:
+  - Advisory findings only: AI verification never triggers automated milestone approval or financial disbursement.
+  - Independent reviewer dashboard, dual-key sign-off, and formal dispute resolution are deferred to Phase 7.
+  - Escrow fund release and NGO milestone payouts are deferred to Phase 8.
+  - Public Proof-of-Impact certificates and NFT generation are deferred to Phase 9.
 
 ## 4. Database & Concurrency
 - **Current Status**: TinyDB stores data in a single JSON file (`data/charity.db`). While stabilized for local single-process development, it does not support ACID transactions, high-concurrency writes, or complex relational queries.

@@ -137,3 +137,4 @@ reset_storage_provider()
 | `S3_SECRET_KEY` | String | `None` | AWS / MinIO Secret Access Key. |
 | `S3_BUCKET_NAME` | String | `charitychain-evidence` | S3 bucket name. |
 | `S3_REGION` | String | `us-east-1` | AWS S3 region. |
+

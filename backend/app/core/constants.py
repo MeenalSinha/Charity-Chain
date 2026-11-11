@@ -152,9 +152,42 @@ class EvidenceStatus(str, Enum):
 class VerificationCheckStatus(str, Enum):
     PASSED = "PASSED"
     FAILED = "FAILED"
+    FLAGGED = "FLAGGED"
     UNAVAILABLE = "UNAVAILABLE"
     NOT_APPLICABLE = "NOT_APPLICABLE"
     PENDING = "PENDING"
+    ERROR = "ERROR"
+
+
+class OverallAssessmentStatus(str, Enum):
+    """Categorical outcome of multi-indicator AI verification."""
+    CONSISTENT = "CONSISTENT"
+    INCONSISTENT = "INCONSISTENT"
+    NEEDS_FURTHER_REVIEW = "NEEDS_FURTHER_REVIEW"
+    INSUFFICIENT_DATA = "INSUFFICIENT_DATA"
+    PROCESSING_FAILED = "PROCESSING_FAILED"
+
+
+class VerificationJobStatus(str, Enum):
+    """Lifecycle status of asynchronous verification jobs."""
+    PENDING = "PENDING"
+    PROCESSING = "PROCESSING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    RETRYING = "RETRYING"
+
+
+class VerificationCheckType(str, Enum):
+    """Supported computer vision and forensic check types."""
+    YOLO_OBJECTS = "YOLO_OBJECTS"
+    ELA_TAMPER = "ELA_TAMPER"
+    PHASH_SIMILARITY = "PHASH_SIMILARITY"
+    SSIM_SIMILARITY = "SSIM_SIMILARITY"
+    EXIF_METADATA = "EXIF_METADATA"
+    GPS_CONSISTENCY = "GPS_CONSISTENCY"
+    PROGRESS_COMPARISON = "PROGRESS_COMPARISON"
+    LLM_EXPLAINABILITY = "LLM_EXPLAINABILITY"
+    FILE_INTEGRITY = "FILE_INTEGRITY"
 
 
 class DonationStatus(str, Enum):

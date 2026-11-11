@@ -75,3 +75,4 @@ def downgrade() -> None:
         batch_op.drop_column('storage_provider')
         batch_op.drop_column('storage_key')
         batch_op.drop_column('original_filename')
+

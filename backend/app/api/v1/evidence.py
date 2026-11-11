@@ -5,15 +5,19 @@ Multi-file upload, multi-versioning, cryptographic integrity checks,
 download links, and tamper-evident audit trail endpoints under /api/v1.
 """
 
-from typing import List, Optional
-from fastapi import APIRouter, Depends, Query, Path, UploadFile, File, Form, status, Response
+from typing import List, Optional, Tuple
+from fastapi import APIRouter, Depends, Query, Path, UploadFile, File, Form, status
+from fastapi.responses import Response, StreamingResponse
 from sqlalchemy.orm import Session
 
+from backend.app.core.config import settings
+from backend.app.core.exceptions import ValidationException
 from backend.app.core.logging import correlation_id_ctx
 from backend.app.core.permissions import get_current_active_user
 from backend.app.db.session import get_db_session
 from backend.app.db.models.users import User
 from backend.app.services.evidence_service import EvidenceService
+from backend.app.integrations.storage.local import _validate_magic_bytes
 from backend.app.api.schemas import (
     StandardResponse,
     EvidenceFileResponse,
@@ -25,6 +29,55 @@ from backend.app.api.schemas import (
 )
 
 router = APIRouter(tags=["Evidence Management"])
+
+
+def _stream_and_validate_upload(
+    upload_file: UploadFile,
+    max_bytes: int,
+    allowed_mime_types: set
+) -> Tuple[bytes, str, str, int]:
+    """
+    Progressively streams upload in bounded 64KB chunks.
+    Validates magic bytes on initial chunk and calculates SHA-256 in stream.
+    Rejects oversized files immediately to prevent unbounded memory consumption.
+    """
+    import hashlib
+    hasher = hashlib.sha256()
+    total_size = 0
+    chunks = []
+    chunk_size = 65536
+    first_chunk = True
+    declared_mime = upload_file.content_type or "application/octet-stream"
+
+    while True:
+        chunk = upload_file.file.read(chunk_size)
+        if not chunk:
+            break
+        total_size += len(chunk)
+        if total_size > max_bytes:
+            raise ValidationException(
+                f"File '{upload_file.filename}' ({total_size / (1024*1024):.2f} MB) exceeds maximum allowed size ({max_bytes / (1024*1024):.1f} MB)."
+            )
+        if first_chunk:
+            if declared_mime not in allowed_mime_types:
+                raise ValidationException(
+                    f"File '{upload_file.filename}' has unsupported MIME type '{declared_mime}'. Allowed: {allowed_mime_types}"
+                )
+            if not _validate_magic_bytes(chunk, declared_mime):
+                raise ValidationException(
+                    f"File '{upload_file.filename}' contents do not match declared MIME type '{declared_mime}' magic signature."
+                )
+            first_chunk = False
+
+        hasher.update(chunk)
+        chunks.append(chunk)
+
+    if total_size == 0:
+        raise ValidationException(f"Evidence file '{upload_file.filename}' cannot be empty.")
+
+    file_bytes = b"".join(chunks)
+    sha256_hash = hasher.hexdigest()
+    return file_bytes, sha256_hash, declared_mime, total_size
 
 
 @router.post(
@@ -42,12 +95,17 @@ def upload_milestone_evidence(
     """
     Uploads one or more evidence files for milestone verification.
     Enforces batch limits, magic bytes inspection, SHA-256 deduplication,
-    and initializes the tamper-evident audit hash chain.
+    bounded streaming chunks, and initializes the tamper-evident audit hash chain.
     """
+    max_bytes = int(settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024)
     file_tuples = []
     for f in files:
-        content = f.file.read()
-        file_tuples.append((content, f.filename or "evidence", f.content_type or "application/octet-stream"))
+        file_bytes, _, mime_type, _ = _stream_and_validate_upload(
+            upload_file=f,
+            max_bytes=max_bytes,
+            allowed_mime_types=settings.ALLOWED_MIME_TYPES
+        )
+        file_tuples.append((file_bytes, f.filename or "evidence", mime_type))
 
     batch_result = EvidenceService.upload_evidence_files(
         db=db,
@@ -77,7 +135,8 @@ def list_milestone_evidence(
     evidence_list = EvidenceService.list_milestone_evidence(
         db=db,
         milestone_id=milestone_id,
-        include_archived=include_archived
+        include_archived=include_archived,
+        user=current_user
     )
     return StandardResponse(
         data=evidence_list,
@@ -96,7 +155,7 @@ def get_evidence_detail(
     db: Session = Depends(get_db_session)
 ):
     """Retrieves metadata and status for a specific evidence asset."""
-    detail = EvidenceService.get_evidence_detail(db, evidence_id)
+    detail = EvidenceService.get_evidence_detail(db, evidence_id, user=current_user)
     return StandardResponse(
         data=detail,
         correlation_id=correlation_id_ctx.get()
@@ -142,7 +201,7 @@ def download_evidence_content(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db_session)
 ):
-    """Streams the binary content of the evidence asset."""
+    """Streams the binary content of the evidence asset in chunks."""
     _, file_bytes, filename, mime_type = EvidenceService.get_evidence_download(
         db=db,
         evidence_id=evidence_id,
@@ -151,12 +210,17 @@ def download_evidence_content(
     if file_bytes is None:
         # If cloud storage provider without direct bytes, fetch through storage provider
         from backend.app.integrations.storage.factory import get_storage_provider
-        evidence = EvidenceService.get_evidence_detail(db, evidence_id)
+        evidence = EvidenceService.get_evidence_detail(db, evidence_id, user=current_user)
         storage = get_storage_provider()
         file_bytes = storage.get_file(evidence.storage_key)
 
-    return Response(
-        content=file_bytes,
+    def iter_bytes():
+        chunk_size = 65536
+        for i in range(0, len(file_bytes), chunk_size):
+            yield file_bytes[i:i + chunk_size]
+
+    return StreamingResponse(
+        iter_bytes(),
         media_type=mime_type,
         headers={"Content-Disposition": f'attachment; filename="{filename}"'}
     )
@@ -179,13 +243,18 @@ def upload_evidence_version(
     Uploads a replacement version for an existing evidence asset.
     Maintains historical records and links the new version cryptographically.
     """
-    content = file.file.read()
+    max_bytes = int(settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024)
+    file_bytes, _, mime_type, _ = _stream_and_validate_upload(
+        upload_file=file,
+        max_bytes=max_bytes,
+        allowed_mime_types=settings.ALLOWED_MIME_TYPES
+    )
     new_version = EvidenceService.upload_evidence_version(
         db=db,
         parent_evidence_id=evidence_id,
-        file_bytes=content,
+        file_bytes=file_bytes,
         filename=file.filename or "replacement_evidence",
-        mime_type=file.content_type or "application/octet-stream",
+        mime_type=mime_type,
         uploader_id=current_user.id,
         reason=reason
     )
@@ -206,8 +275,8 @@ def get_evidence_versions(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db_session)
 ):
-    """Retrieves full version lineage for an evidence asset."""
-    history = EvidenceService.get_version_history(db, evidence_id)
+    """Retrieves full version lineage for an evidence asset with access control enforcement."""
+    history = EvidenceService.get_version_history(db, evidence_id, user=current_user)
     return StandardResponse(
         data=history,
         correlation_id=correlation_id_ctx.get()
@@ -231,7 +300,8 @@ def verify_evidence_integrity(
     result = EvidenceService.verify_evidence_integrity(
         db=db,
         evidence_id=evidence_id,
-        actor_id=current_user.id
+        actor_id=current_user.id,
+        user=current_user
     )
     return StandardResponse(
         data=result,
@@ -283,9 +353,10 @@ def get_evidence_audit_trail(
     Retrieves the complete audit trail and verifies that the SHA-256
     hash chain is continuous, valid, and un-tampered.
     """
-    trail = EvidenceService.get_audit_trail(db, evidence_id)
+    trail = EvidenceService.get_audit_trail(db, evidence_id, user=current_user)
     return StandardResponse(
         data=trail,
         correlation_id=correlation_id_ctx.get(),
         message="Audit chain verified intact." if trail.is_chain_intact else "AUDIT CHAIN INTEGRITY BREACHED!"
     )
+

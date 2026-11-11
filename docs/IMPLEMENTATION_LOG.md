@@ -178,3 +178,23 @@
   - Integrated interactive Phase 5 Evidence Engine into `app_ui.py` alongside legacy demo tab.
   - Added 24 new automated tests across 8 suites. Total test suite: 157 / 157 passed (100%) in 68.72s.
 
+## Phase 6: AI Evidence Verification Engine (Computer Vision, Forensics, Geospatial, Progress & XAI)
+- **Status**: COMPLETED
+- **Key Changes**:
+  - Conducted pre-Phase 6 audit and repaired authorization boundaries across evidence endpoints (`_check_evidence_access`), preventing donors from viewing unapproved evidence or private audit logs.
+  - Replaced unbounded upload memory buffering with 64KB chunked streaming and magic bytes inspection.
+  - Designed strongly typed AI schemas in `backend/app/integrations/ai/schemas.py` and `AIProviderInterface` in `backend/app/integrations/ai/provider.py`.
+  - Implemented real YOLOv8 object detection in `backend/app/integrations/ai/yolo_provider.py` with SHA-256 pinned weights check (`f59b3d833e2ff32e194b5bb8e08d211dc7c5bdf144b90d2c8412c47ccfc83b36`) and category relevance mapping in `relevance_mapper.py`.
+  - Implemented JPEG Error Level Analysis in `backend/app/integrations/ai/ela_analyzer.py` with difference variance calculation and amplified diagnostic heatmap generation; non-JPEGs handled as `NOT_APPLICABLE`.
+  - Implemented perceptual hashing (64-bit DCT pHash) and SSIM comparison in `phash_analyzer.py`, `ssim_analyzer.py`, and `progress_comparator.py`; duplicate baseline rejection vs visible physical progression detection.
+  - Implemented authentic EXIF metadata extraction and GPS DMS coordinate parsing with Haversine distance evaluation in `exif_analyzer.py` and `gps_analyzer.py`.
+  - Implemented safe bounded PDF processing (10 pages / 50MB) in `pdf_processor.py`.
+  - Implemented grounded Explainable AI with prompt-injection defense and deterministic rule-based fallback in `llm_explainer.py`.
+  - Standardized `calibration_status = "UNVALIDATED"` across all reports and API contracts.
+  - Extended database models (`VerificationReport`, `VerificationCheckRecord`, `VerificationJob`) and authored Alembic migration `006_phase6_ai_verification.py` (verified `upgrade`/`downgrade`/`upgrade`).
+  - Implemented `VerificationService` with queuing, status tracking, retry handling, sync/async worker execution, and cryptographic audit chaining (`AI_VERIFIED`).
+  - Mounted 6 REST endpoints under `/api/v1/verification/` in `backend/app/api/v1/verification.py`.
+  - Integrated Phase 6 verification findings panel and diagnostic artifact viewer in Streamlit `app_ui.py`.
+  - Wired legacy `EnhancedAIVerifier` in `charity_tracker.py` to delegate directly to modular backend AI engine.
+  - Added 40 new automated tests across 9 suites. Total test suite: 197 / 197 passed (100%) in 136.77s.
+

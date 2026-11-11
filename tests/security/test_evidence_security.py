@@ -160,3 +160,59 @@ def test_soft_archival_preserves_content_and_prevents_data_loss(db_session, sec_
     trail = EvidenceService.get_audit_trail(db_session, ev_id)
     assert trail.is_chain_intact is True
     assert trail.events[-1].event_type == "ARCHIVED"
+
+
+def test_unauthorized_donor_audit_trail_access_denied(db_session, sec_test_setup):
+    """Verify unauthorized donors cannot view internal cryptographic audit trails."""
+    m_id = sec_test_setup["milestone"].id
+    ngo_id = sec_test_setup["ngo_user"].id
+    donor_user = sec_test_setup["donor_user"]
+
+    content = b"%PDF-1.4 financial disbursement audit"
+    res = EvidenceService.upload_evidence_files(
+        db=db_session,
+        milestone_id=m_id,
+        files=[(content, "audit.pdf", "application/pdf")],
+        uploader_id=ngo_id
+    )
+    ev_id = res.items[0].id
+
+    with pytest.raises(PermissionDeniedError, match="restricted"):
+        EvidenceService.get_audit_trail(db_session, ev_id, user=donor_user)
+
+
+def test_unauthorized_cross_org_listing_denied(db_session, sec_test_setup):
+    """Verify external users cannot list private/draft milestone evidence."""
+    m_id = sec_test_setup["milestone"].id
+    donor_user = sec_test_setup["donor_user"]
+
+    with pytest.raises(PermissionDeniedError, match="restricted"):
+        EvidenceService.list_milestone_evidence(
+            db=db_session,
+            milestone_id=m_id,
+            include_archived=False,
+            user=donor_user
+        )
+
+
+def test_inactive_account_evidence_access_denied(db_session, sec_test_setup):
+    """Verify inactive accounts are blocked from accessing evidence."""
+    m_id = sec_test_setup["milestone"].id
+    ngo_user = sec_test_setup["ngo_user"]
+    ngo_id = ngo_user.id
+
+    content = b"%PDF-1.4 inactive account test"
+    res = EvidenceService.upload_evidence_files(
+        db=db_session,
+        milestone_id=m_id,
+        files=[(content, "test.pdf", "application/pdf")],
+        uploader_id=ngo_id
+    )
+    ev_id = res.items[0].id
+
+    # Deactivate NGO user
+    ngo_user.is_active = False
+    db_session.commit()
+
+    with pytest.raises(PermissionDeniedError, match="Active user account is required"):
+        EvidenceService.get_evidence_detail(db_session, ev_id, user=ngo_user)

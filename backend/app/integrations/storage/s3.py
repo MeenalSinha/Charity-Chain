@@ -160,3 +160,4 @@ class S3StorageProvider(StorageProviderInterface):
             if error_code in ("NoSuchKey", "404"):
                 raise NotFoundException(f"Storage object '{storage_key}' not found.")
             raise InternalServerException(f"Storage metadata error: {e}")
+

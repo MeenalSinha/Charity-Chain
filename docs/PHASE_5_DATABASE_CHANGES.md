@@ -85,3 +85,4 @@ python -m alembic -c backend/alembic.ini upgrade head
 # INFO  [alembic.runtime.migration] Running upgrade 004_phase4_payment_and_donations -> 005_phase5_evidence_management
 ```
 Result: Schema migration executed cleanly without data loss or table locks.
+

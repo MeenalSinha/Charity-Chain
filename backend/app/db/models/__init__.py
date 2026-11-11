@@ -15,7 +15,7 @@ from backend.app.db.models.financial import (
 )
 from backend.app.db.models.evidence import (
     EvidenceFile, VerificationReport, VerificationCheckRecord,
-    EvidenceAuditEvent, compute_audit_hash
+    VerificationJob, EvidenceAuditEvent, compute_audit_hash
 )
 from backend.app.db.models.reviews_impact import ReviewTask, ReviewDecisionRecord, ImpactCertificate, AuditEvent
 
@@ -45,6 +45,7 @@ __all__ = [
     "EvidenceFile",
     "VerificationReport",
     "VerificationCheckRecord",
+    "VerificationJob",
     "EvidenceAuditEvent",
     "compute_audit_hash",
     "ReviewTask",

@@ -852,4 +852,81 @@ class ArchiveEvidenceRequest(BaseModel):
     reason: Optional[str] = Field(None, max_length=255)
 
 
+# ============================================================================
+# PHASE 6 AI EVIDENCE VERIFICATION ENGINE SCHEMAS
+# ============================================================================
+
+class StartVerificationRequest(BaseModel):
+    """Payload to trigger an asynchronous multi-indicator AI verification run."""
+    baseline_evidence_id: Optional[str] = Field(default=None, description="Optional baseline evidence UUID for before/after comparison")
+    requested_checks: Optional[List[str]] = Field(default=None, description="Optional filter of check types to execute")
+    pipeline_profile: Optional[str] = Field(default=None, description="Optional verification profile")
+    idempotency_key: Optional[str] = Field(default=None, max_length=128, description="Optional unique key to prevent duplicate job processing")
+
+
+class VerificationJobResponse(BaseModel):
+    """Status payload for a durable verification job."""
+    id: str
+    evidence_file_id: str
+    evidence_hash: str
+    evidence_version: int
+    status: str
+    attempt_count: int
+    max_attempts: int
+    pipeline_version: str
+    baseline_evidence_id: Optional[str] = None
+    report_id: Optional[str] = None
+    error_category: Optional[str] = None
+    error_message: Optional[str] = None
+    queued_at: datetime
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+
+
+class VerificationCheckResponse(BaseModel):
+    """Structured result of an individual technical verification indicator."""
+    id: str
+    check_type: str
+    status: str
+    passed: bool
+    message: str
+    technical_result: Optional[Dict[str, Any]] = None
+    raw_metrics: Optional[Dict[str, Any]] = None
+    model_name: Optional[str] = None
+    model_version: Optional[str] = None
+    duration_ms: Optional[int] = None
+    diagnostic_artifact_url: Optional[str] = None
+    created_at: datetime
+
+
+class VerificationReportResponse(BaseModel):
+    """Complete multi-indicator AI verification report."""
+    id: str
+    evidence_file_id: str
+    evidence_version: int
+    evidence_hash: str
+    project_id: Optional[str] = None
+    milestone_id: Optional[str] = None
+    pipeline_version: str
+    overall_assessment: str
+    confidence_score: Optional[float] = None
+    calibration_status: str
+    summary_notes: Optional[str] = None
+    limitations: Optional[List[str]] = None
+    model_metadata: Optional[Dict[str, Any]] = None
+    error_details: Optional[str] = None
+    checks: List[VerificationCheckResponse] = Field(default_factory=list)
+    created_at: datetime
+    processing_started_at: Optional[datetime] = None
+    processing_completed_at: Optional[datetime] = None
+
+
+class VerificationHistoryResponse(BaseModel):
+    """Historical archive of verification reports for an evidence asset."""
+    evidence_file_id: str
+    total_reports: int
+    reports: List[VerificationReportResponse]
+
+
+
 

@@ -451,61 +451,35 @@ class DatabaseManager:
 
 class EnhancedAIVerifier:
     """
-    Evidence Verification Engine.
-    Executes genuine computer vision and forensic indicator checks.
+    Evidence Verification Engine (Legacy Adapter).
+    Delegates directly to the authoritative modern backend AI providers in
+    `backend.app.integrations.ai` to guarantee unified business logic.
     Distinguishes PASSED, FAILED, UNAVAILABLE, NOT_APPLICABLE, and PENDING.
     Never returns fabricated detections or mock GPS distances.
     """
     def __init__(self, model_path: Optional[str] = None):
-        self.yolo_model = None
-        self.yolo_model_path = model_path or Config.YOLO_MODEL_PATH
-        if YOLO_AVAILABLE:
-            try:
-                if Path(self.yolo_model_path).exists():
-                    self.yolo_model = YOLO(self.yolo_model_path)
-                    Logger.log('INFO', f"YOLO model loaded from {self.yolo_model_path}")
-                else:
-                    Logger.log('WARNING', f"YOLO model weights file not found at {self.yolo_model_path}")
-            except Exception as e:
-                Logger.log('ERROR', f"YOLO initialization failed: {e}")
-                self.yolo_model = None
+        from backend.app.integrations.ai.yolo_provider import YoloObjectDetector
+        from backend.app.integrations.ai.ela_analyzer import ErrorLevelAnalyzer
+        from backend.app.integrations.ai.phash_analyzer import PerceptualHashAnalyzer
+        from backend.app.integrations.ai.gps_analyzer import GpsGeospatialAnalyzer
+        from backend.app.integrations.ai.exif_analyzer import ExifMetadataAnalyzer
+
+        self.yolo_detector = YoloObjectDetector(model_path=model_path or Config.YOLO_MODEL_PATH)
+        self.yolo_model = self.yolo_detector.model
+        self.yolo_model_path = self.yolo_detector.model_path
+        self.ela_analyzer = ErrorLevelAnalyzer(threshold=Config.TAMPER_THRESHOLD)
+        self.phash_analyzer = PerceptualHashAnalyzer(distance_threshold=Config.PHASH_DISTANCE_THRESHOLD)
+        self.gps_analyzer = GpsGeospatialAnalyzer(tolerance_meters=Config.GPS_RADIUS_METERS)
+        self.exif_analyzer = ExifMetadataAnalyzer()
     
     def detect_objects(self, image_bytes: bytes, conf_threshold: float = 0.3) -> Tuple[List[Dict], str]:
-        """
-        Runs genuine YOLO object detection.
-        Returns: (detections_list, status)
-        Status is 'PASSED', 'FAILED', or 'UNAVAILABLE'.
-        Never returns fabricated detections.
-        """
-        if not self.yolo_model:
-            return [], "UNAVAILABLE"
-        
-        tmp_fd, tmp_path_str = tempfile.mkstemp(suffix='.jpg')
-        try:
-            with os.fdopen(tmp_fd, 'wb') as f:
-                f.write(image_bytes)
-            
-            results = self.yolo_model.predict(source=tmp_path_str, conf=conf_threshold, save=False, imgsz=640)
-            detections = []
-            for result in results:
-                for box in result.boxes:
-                    detections.append({
-                        'class': int(box.cls[0]),
-                        'conf': float(box.conf[0]),
-                        'xyxy': box.xyxy[0].tolist(),
-                        'label': result.names[int(box.cls[0])]
-                    })
-            status = "PASSED" if len(detections) >= Config.MIN_DETECTIONS else "FAILED"
-            return detections, status
-        except Exception as e:
-            Logger.log('ERROR', f"Object detection failed during inference: {e}")
-            return [], "FAILED"
-        finally:
-            if os.path.exists(tmp_path_str):
-                try:
-                    os.unlink(tmp_path_str)
-                except Exception:
-                    pass
+        """Runs genuine YOLO object detection via YoloObjectDetector."""
+        res = self.yolo_detector.detect_objects(image_bytes)
+        dets = [
+            {'class': d.class_id, 'conf': d.confidence, 'xyxy': d.box, 'label': d.label}
+            for d in res.detections
+        ]
+        return dets, res.status.value
     
     def get_annotated_image(self, image_bytes: bytes, detections: List[Dict]) -> bytes:
         """Draws red bounding boxes and confidence labels on detected objects."""
@@ -534,7 +508,6 @@ class EnhancedAIVerifier:
             readable = {}
             for tag, val in exif.items():
                 decoded = ExifTags.TAGS.get(tag, tag)
-                # Avoid large binary blobs in readable output
                 readable[str(decoded)] = str(val)[:100]
             return readable
         except Exception:
@@ -543,121 +516,34 @@ class EnhancedAIVerifier:
     @staticmethod
     def _convert_dms_to_degrees(value) -> Optional[float]:
         """Converts GPS coordinate tuple (degrees, minutes, seconds) to decimal degrees."""
-        try:
-            if isinstance(value, (int, float)):
-                return float(value)
-            d = float(value[0])
-            m = float(value[1])
-            s = float(value[2])
-            return d + (m / 60.0) + (s / 3600.0)
-        except Exception:
-            return None
+        from backend.app.integrations.ai.gps_analyzer import GpsGeospatialAnalyzer
+        return GpsGeospatialAnalyzer._convert_dms_to_degrees(value)
 
     def extract_exif_gps(self, image_bytes: bytes) -> Optional[Tuple[float, float]]:
-        """
-        Extracts genuine GPS latitude and longitude from image EXIF if present.
-        Returns: (latitude, longitude) in decimal degrees, or None if not found/unparseable.
-        """
-        try:
-            img = Image.open(BytesIO(image_bytes))
-            exif = img._getexif()
-            if not exif:
-                return None
-            
-            gps_info = {}
-            for tag_id, value in exif.items():
-                tag_name = ExifTags.TAGS.get(tag_id, tag_id)
-                if tag_name == 'GPSInfo' or tag_id == 34853:
-                    if isinstance(value, dict):
-                        for gps_tag_id, gps_value in value.items():
-                            gps_tag_name = ExifTags.GPSTAGS.get(gps_tag_id, gps_tag_id)
-                            gps_info[gps_tag_name] = gps_value
-            
-            if not gps_info:
-                return None
-            
-            lat_val = gps_info.get('GPSLatitude')
-            lat_ref = gps_info.get('GPSLatitudeRef', 'N')
-            lon_val = gps_info.get('GPSLongitude')
-            lon_ref = gps_info.get('GPSLongitudeRef', 'E')
-            
-            if lat_val and lon_val:
-                lat = self._convert_dms_to_degrees(lat_val)
-                lon = self._convert_dms_to_degrees(lon_val)
-                if lat is not None and lon is not None:
-                    if str(lat_ref).upper() == 'S':
-                        lat = -lat
-                    if str(lon_ref).upper() == 'W':
-                        lon = -lon
-                    return (lat, lon)
-            return None
-        except Exception as e:
-            Logger.log('DEBUG', f"EXIF GPS extraction failed: {e}")
-            return None
+        """Extracts genuine GPS latitude and longitude from image EXIF if present."""
+        return self.gps_analyzer.extract_coordinates(image_bytes)
 
     def calculate_gps_distance(self, lat1: float, lon1: float, lat2: float, lon2: float) -> float:
         """Computes Great-Circle distance in meters between two geocoordinates using Haversine formula."""
-        R = 6371000  # Earth radius in meters
-        phi1, lambda1, phi2, lambda2 = map(radians, [lat1, lon1, lat2, lon2])
-        dphi = phi2 - phi1
-        dlambda = lambda2 - lambda1
-        a = sin(dphi / 2)**2 + cos(phi1) * cos(phi2) * sin(dlambda / 2)**2
-        c = 2 * atan2(sqrt(a), sqrt(1 - a))
-        return R * c
+        return self.gps_analyzer.calculate_haversine_distance(lat1, lon1, lat2, lon2)
     
     def verify_gps_location(self, image_bytes: bytes, expected_lat: float, expected_lon: float) -> Tuple[bool, str, Optional[float], str]:
-        """
-        Verifies evidence location against expected coordinates using genuine image EXIF GPS.
-        Returns: (passed, message, distance_meters, status)
-        Status is 'PASSED', 'FAILED', or 'UNAVAILABLE'.
-        Never uses hardcoded distances.
-        """
-        coords = self.extract_exif_gps(image_bytes)
-        if coords is None:
-            return False, "No GPS metadata found in image EXIF. Location cannot be verified from image headers.", None, "UNAVAILABLE"
-        
-        actual_lat, actual_lon = coords
-        distance = self.calculate_gps_distance(actual_lat, actual_lon, expected_lat, expected_lon)
-        
-        if distance <= Config.GPS_RADIUS_METERS:
-            return True, f"GPS verified ({distance:.1f}m from expected milestone coordinates).", distance, "PASSED"
-        else:
-            return False, f"GPS location mismatch ({distance:.1f}m exceeds {Config.GPS_RADIUS_METERS}m tolerance).", distance, "FAILED"
+        """Verifies evidence location against expected coordinates using genuine image EXIF GPS."""
+        res = self.gps_analyzer.verify_location(image_bytes, expected_lat, expected_lon)
+        return res.passed, res.message, res.distance_meters, res.status.value
     
     def error_level_analysis(self, image_bytes: bytes) -> Tuple[float, str]:
-        """
-        Performs Error Level Analysis (ELA) as a compression variance indicator.
-        NOTE: ELA highlights compression error variations and is an investigative indicator,
-        not absolute forensic proof of digital manipulation.
-        Returns: (ela_score, status) where status is 'PASSED' or 'FAILED'
-        """
-        try:
-            img = Image.open(BytesIO(image_bytes)).convert('RGB')
-            buffer = BytesIO()
-            img.save(buffer, 'JPEG', quality=90)
-            buffer.seek(0)
-            recompressed = Image.open(buffer)
-            ela = ImageChops.difference(img, recompressed)
-            arr = np.asarray(ela).astype(np.float32)
-            score = float(arr.mean())
-            status = "PASSED" if score < Config.TAMPER_THRESHOLD else "FAILED"
-            return score, status
-        except Exception as e:
-            Logger.log('ERROR', f"ELA computation failed: {e}")
-            return 0.0, "FAILED"
+        """Performs Error Level Analysis (ELA) via ErrorLevelAnalyzer."""
+        res = self.ela_analyzer.analyze(image_bytes, mime_type="image/jpeg", generate_artifact=False)
+        status_str = "PASSED" if res.status.value == "PASSED" else "FAILED"
+        return res.ela_score, status_str
     
     def perceptual_hash_similarity(self, img_bytes_a: bytes, img_bytes_b: bytes) -> Tuple[Optional[int], str]:
         """Computes Hamming distance between perceptual hashes (pHash) of two images."""
-        try:
-            img_a = Image.open(BytesIO(img_bytes_a)).convert('RGB')
-            img_b = Image.open(BytesIO(img_bytes_b)).convert('RGB')
-            hash_a = imagehash.phash(img_a)
-            hash_b = imagehash.phash(img_b)
-            distance = int(hash_a - hash_b)
-            return distance, "PASSED"
-        except Exception as e:
-            Logger.log('ERROR', f"pHash comparison failed: {e}")
+        res = self.phash_analyzer.compare_images(img_bytes_a, img_bytes_b)
+        if res.status.value == "ERROR" or res.hamming_distance is None:
             return None, "FAILED"
+        return res.hamming_distance, "PASSED"
     
     def run_parallel_verification(self, evidence_bytes: bytes, before_bytes: Optional[bytes] = None,
                                   expected_lat: Optional[float] = None, expected_lon: Optional[float] = None,
@@ -759,6 +645,29 @@ class EnhancedAIVerifier:
                 'phash_distance': None,
                 'message': 'No baseline (before) photograph provided for comparative verification.'
             }
+        
+        # Normalized Confidence Calculation
+        # Only actually executed checks with PASSED or FAILED status contribute to the denominator
+        weights = {'gps': 0.25, 'tamper': 0.30, 'object_detection': 0.30, 'before_after': 0.15}
+        active_weights = 0.0
+        earned_weights = 0.0
+        for check_name, weight in weights.items():
+            check = results['checks'].get(check_name)
+            if check and check.get('status') in ['PASSED', 'FAILED']:
+                active_weights += weight
+                if check.get('passed'):
+                    earned_weights += weight
+        
+        if active_weights > 0.0:
+            confidence = round(earned_weights / active_weights, 2)
+        else:
+            confidence = 0.0
+        
+        results['confidence'] = min(1.0, confidence)
+        results['pass'] = (results['confidence'] >= Config.CONFIDENCE_THRESHOLD and any(c.get('passed') for c in results['checks'].values()))
+        results['annotated_image'] = self.get_annotated_image(evidence_bytes, detections) if detections else None
+        
+        return results
         
         # Normalized Confidence Calculation
         # Only actually executed checks with PASSED or FAILED status contribute to the denominator

@@ -40,6 +40,7 @@ from backend.app.services.ngo_onboarding_service import NGOOnboardingService
 from backend.app.services.project_service import ProjectService
 from backend.app.services.donation_service import DonationService
 from backend.app.services.evidence_service import EvidenceService
+from backend.app.services.verification_service import VerificationService
 from backend.app.integrations.storage.local import LocalStorageProvider
 
 
@@ -1185,6 +1186,100 @@ def page_submit_evidence():
                                                         EvidenceService.archive_evidence(db, ev.id, user_id, reason="Archived via UI")
                                                     st.warning("Asset marked as archived.")
                                                     st.rerun()
+                                        with b_col3:
+                                            if not ev.is_archived:
+                                                if st.button("🤖 Run AI Verification", key=f"btn_run_ai_{ev.id}", type="primary"):
+                                                    try:
+                                                        with SessionFactory() as db:
+                                                            from backend.app.db.models.users import User
+                                                            from sqlalchemy import select
+                                                            u_obj = db.execute(select(User).where(User.id == user_id)).scalar_one_or_none()
+                                                            VerificationService.submit_verification_job(db, ev.id, u_obj)
+                                                        st.success("✅ AI verification analysis executed!")
+                                                        time.sleep(1)
+                                                        st.rerun()
+                                                    except Exception as e_ai:
+                                                        st.error(f"AI Verification failed: {e_ai}")
+
+                                        # AI Verification Report Expander
+                                        with st.expander("🤖 Phase 6 AI Verification Findings & Forensic Indicators", expanded=True):
+                                            with SessionFactory() as db:
+                                                from backend.app.db.models.users import User
+                                                from sqlalchemy import select
+                                                u_obj = db.execute(select(User).where(User.id == user_id)).scalar_one_or_none()
+                                                try:
+                                                    ai_report = VerificationService.get_latest_report(db, ev.id, u_obj)
+                                                except Exception:
+                                                    ai_report = None
+
+                                            if not ai_report:
+                                                st.info("No AI verification report generated yet for this evidence asset.")
+                                                # Optional baseline linking
+                                                other_evs = [other for other in evidence_records if other.id != ev.id and not other.is_archived]
+                                                baseline_sel = None
+                                                if other_evs:
+                                                    b_opts = {None: "None (Single evidence analysis)"}
+                                                    for o in other_evs:
+                                                        b_opts[o.id] = f"{o.original_filename or o.id} (v{o.version_number})"
+                                                    baseline_sel = st.selectbox(
+                                                        "Link Baseline Evidence (Before / After Comparison)",
+                                                        options=list(b_opts.keys()),
+                                                        format_func=lambda x: b_opts[x],
+                                                        key=f"base_sel_{ev.id}"
+                                                    )
+
+                                                if st.button("🚀 Run Analysis Now", key=f"run_now_{ev.id}"):
+                                                    try:
+                                                        with SessionFactory() as db:
+                                                            u_obj = db.execute(select(User).where(User.id == user_id)).scalar_one_or_none()
+                                                            from backend.app.api.schemas import StartVerificationRequest
+                                                            s_req = StartVerificationRequest(baseline_evidence_id=baseline_sel) if baseline_sel else None
+                                                            VerificationService.submit_verification_job(db, ev.id, u_obj, req=s_req)
+                                                        st.success("✅ Analysis completed!")
+                                                        time.sleep(1)
+                                                        st.rerun()
+                                                    except Exception as e_start:
+                                                        st.error(f"Analysis trigger failed: {e_start}")
+                                            else:
+                                                # Render rich verification report
+                                                oa = ai_report.overall_assessment
+                                                if oa == "CONSISTENT":
+                                                    st.success("### ✅ Overall Assessment: CONSISTENT WITH DECLARATIONS")
+                                                elif oa == "NEEDS_FURTHER_REVIEW":
+                                                    st.warning("### ⚠️ Overall Assessment: NEEDS FURTHER REVIEW (Anomalies Flagged)")
+                                                elif oa == "INCONSISTENT":
+                                                    st.error("### ❌ Overall Assessment: INCONSISTENT / CONFLICT DETECTED")
+                                                else:
+                                                    st.info(f"### ℹ️ Overall Assessment: {oa}")
+
+                                                conf_pct = (ai_report.confidence_score * 100) if ai_report.confidence_score is not None else 0.0
+                                                st.caption(f"**Confidence Indicator:** {conf_pct:.1f}% • **Calibration Status:** `{ai_report.calibration_status}` • **Pipeline:** `{ai_report.pipeline_version}` • **Report Date:** {ai_report.created_at.strftime('%Y-%m-%d %H:%M:%S')}")
+
+                                                if ai_report.summary_notes:
+                                                    st.info(f"**Reviewer Summary:**\n\n{ai_report.summary_notes}")
+
+                                                st.markdown("#### 🔬 Technical Forensic Checks")
+                                                for chk in ai_report.checks:
+                                                    badge = "✅" if chk.passed else ("⚠️" if chk.status == "FLAGGED" else "ℹ️")
+                                                    with st.expander(f"{badge} {chk.check_type} — [{chk.status}]"):
+                                                        st.write(f"**Status:** `{chk.status}` | **Passed:** `{chk.passed}`")
+                                                        st.write(f"**Explanation:** {chk.message}")
+                                                        if chk.technical_result:
+                                                            st.json(chk.technical_result)
+                                                        if chk.diagnostic_artifact_url:
+                                                            art_filename = os.path.basename(chk.diagnostic_artifact_url)
+                                                            with SessionFactory() as db:
+                                                                try:
+                                                                    u_obj = db.execute(select(User).where(User.id == user_id)).scalar_one_or_none()
+                                                                    art_bytes, art_mime = VerificationService.get_diagnostic_artifact(db, ai_report.id, art_filename, u_obj)
+                                                                    st.image(art_bytes, caption=f"Diagnostic Visualization: {chk.check_type}")
+                                                                except Exception:
+                                                                    pass
+
+                                                if ai_report.limitations:
+                                                    with st.expander("⚠️ System Limitations & Disclaimers"):
+                                                        for lim in ai_report.limitations:
+                                                            st.caption(f"• {lim}")
 
                                         # Audit Trail Expander
                                         with st.expander("📜 Tamper-Evident SHA-256 Audit Trail"):

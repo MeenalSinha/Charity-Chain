@@ -97,3 +97,4 @@ When an NGO uploads a replacement version (e.g., following a revision request):
 2. **Confidentiality**: Direct downloads of raw inspection files are restricted to organization staff, assigned platform reviewers, and platform administrators.
 3. **Magic-Byte Filtering**: All uploads are verified against binary file signatures (`b"%PDF"`, `b"\xff\xd8\xff"`, `b"\x89PNG\r\n\x1a\n"`). Malicious executables or scripts are rejected prior to persistence.
 4. **Resolved Path Containment**: Local filesystem paths are verified to ensure canonical resolution remains strictly within configured directories, preventing path traversal attacks.
+

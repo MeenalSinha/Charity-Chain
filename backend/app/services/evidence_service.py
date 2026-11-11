@@ -69,6 +69,73 @@ class EvidenceService:
         return milestone, project
 
     @staticmethod
+    def _check_evidence_access(
+        db: Session,
+        evidence: EvidenceFile,
+        user: Optional[User],
+        action: str = "read"
+    ) -> Tuple[Milestone, Project]:
+        """
+        Enforces organization isolation, role-based access control, and IDOR protection.
+        Actions:
+          - 'read': viewing metadata, download URL, content, version lineage
+          - 'audit': viewing cryptographic audit logs (staff/reviewers/admins only)
+          - 'integrity': triggering cryptographic content verification (staff/reviewers/admins only)
+          - 'write': uploading replacement version, soft-archiving (staff/admins only)
+        """
+        milestone = db.execute(select(Milestone).where(Milestone.id == evidence.milestone_id)).scalar_one_or_none()
+        if not milestone:
+            raise NotFoundException(f"Associated milestone '{evidence.milestone_id}' not found.")
+
+        project = db.execute(select(Project).where(Project.id == milestone.project_id)).scalar_one_or_none()
+        if not project:
+            raise NotFoundException(f"Associated project for milestone '{evidence.milestone_id}' not found.")
+
+        # If no user provided (internal system call)
+        if user is None:
+            return milestone, project
+
+        if not user.is_active:
+            raise PermissionDeniedError("Active user account is required to access evidence assets.")
+
+        user_role_str = str(user.role.value if hasattr(user.role, "value") else user.role)
+
+        # Platform Admins have universal authority
+        if user_role_str in ("PLATFORM_ADMIN", "ADMIN"):
+            return milestone, project
+
+        # Reviewers have platform-wide read, audit, and integrity verification permissions
+        if user_role_str == "REVIEWER":
+            if action in ("read", "audit", "integrity"):
+                return milestone, project
+            raise PermissionDeniedError("Reviewers do not have permission to modify or archive evidence.")
+
+        # Check organization membership for owning organization
+        membership = db.execute(
+            select(OrganizationMembership).where(
+                OrganizationMembership.organization_id == project.organization_id,
+                OrganizationMembership.user_id == user.id,
+                OrganizationMembership.is_active == True
+            )
+        ).scalar_one_or_none()
+
+        if membership and membership.role in (OrganizationRole.OWNER, OrganizationRole.ADMIN, OrganizationRole.MEMBER):
+            return milestone, project
+
+        # External users / Donors:
+        if action in ("audit", "integrity", "write"):
+            raise PermissionDeniedError(
+                f"Action '{action}' is strictly restricted to organization members, reviewers, and administrators."
+            )
+
+        # Read action for donors: permitted only if project is active/published and evidence is not archived
+        project_status_str = str(project.status.value if hasattr(project.status, "value") else project.status)
+        if project_status_str == "ACTIVE" and not evidence.is_archived:
+            return milestone, project
+
+        raise PermissionDeniedError("Access to this evidence asset is restricted.")
+
+    @staticmethod
     def _build_evidence_response(evidence: EvidenceFile, download_url: Optional[str] = None) -> EvidenceFileResponse:
         """Converts an EvidenceFile ORM entity to a Pydantic schema."""
         return EvidenceFileResponse(
@@ -393,25 +460,10 @@ class EvidenceService:
             raise NotFoundException(f"Evidence file '{evidence_id}' not found.")
 
         # Access check
+        user = None
         if user_id:
             user = db.execute(select(User).where(User.id == user_id)).scalar_one_or_none()
-            if not user or not user.is_active:
-                raise PermissionDeniedError("Unauthorized access to evidence asset.")
-            # Reviewers, Admins, or NGO members are allowed
-            user_role_str = str(user.role.value if hasattr(user.role, "value") else user.role)
-            if user_role_str not in ("PLATFORM_ADMIN", "ADMIN", "REVIEWER"):
-                # Check org membership
-                milestone = db.execute(select(Milestone).where(Milestone.id == evidence.milestone_id)).scalar_one_or_none()
-                project = db.execute(select(Project).where(Project.id == milestone.project_id)).scalar_one_or_none()
-                membership = db.execute(
-                    select(OrganizationMembership).where(
-                        OrganizationMembership.organization_id == project.organization_id,
-                        OrganizationMembership.user_id == user_id,
-                        OrganizationMembership.is_active == True
-                    )
-                ).scalar_one_or_none()
-                if not membership:
-                    raise PermissionDeniedError("Access to raw evidence asset is restricted to organization staff, reviewers, or administrators.")
+        cls._check_evidence_access(db, evidence, user, action="read")
 
         # Log DOWNLOADED audit event into the hash chain
         last_event = db.execute(
@@ -457,7 +509,8 @@ class EvidenceService:
         cls,
         db: Session,
         evidence_id: str,
-        actor_id: Optional[str] = None
+        actor_id: Optional[str] = None,
+        user: Optional[User] = None
     ) -> EvidenceIntegrityResponse:
         """
         Retrieves stored bytes, recalculates SHA-256 hash, and verifies cryptographic match.
@@ -466,6 +519,12 @@ class EvidenceService:
         evidence = db.execute(select(EvidenceFile).where(EvidenceFile.id == evidence_id)).scalar_one_or_none()
         if not evidence:
             raise NotFoundException(f"Evidence file '{evidence_id}' not found.")
+
+        # Enforce access control
+        effective_user = user
+        if effective_user is None and actor_id:
+            effective_user = db.execute(select(User).where(User.id == actor_id)).scalar_one_or_none()
+        cls._check_evidence_access(db, evidence, effective_user, action="integrity")
 
         storage = get_storage_provider()
         content = storage.get_file(evidence.storage_key)
@@ -570,9 +629,34 @@ class EvidenceService:
         cls,
         db: Session,
         milestone_id: str,
-        include_archived: bool = False
+        include_archived: bool = False,
+        user: Optional[User] = None
     ) -> List[EvidenceFileResponse]:
-        """Lists evidence assets for a given milestone."""
+        """Lists evidence assets for a given milestone, enforcing organization isolation."""
+        milestone = db.execute(select(Milestone).where(Milestone.id == milestone_id)).scalar_one_or_none()
+        if not milestone:
+            raise NotFoundException(f"Milestone '{milestone_id}' not found.")
+
+        project = db.execute(select(Project).where(Project.id == milestone.project_id)).scalar_one_or_none()
+        if not project:
+            raise NotFoundException(f"Project for milestone '{milestone_id}' not found.")
+
+        if user is not None:
+            user_role_str = str(user.role.value if hasattr(user.role, "value") else user.role)
+            if user_role_str not in ("PLATFORM_ADMIN", "ADMIN", "REVIEWER"):
+                membership = db.execute(
+                    select(OrganizationMembership).where(
+                        OrganizationMembership.organization_id == project.organization_id,
+                        OrganizationMembership.user_id == user.id,
+                        OrganizationMembership.is_active == True
+                    )
+                ).scalar_one_or_none()
+
+                if not membership:
+                    project_status_str = str(project.status.value if hasattr(project.status, "value") else project.status)
+                    if project_status_str != "ACTIVE" or include_archived:
+                        raise PermissionDeniedError("Access to private or draft milestone evidence is restricted.")
+
         query = select(EvidenceFile).where(EvidenceFile.milestone_id == milestone_id)
         if not include_archived:
             query = query.where(EvidenceFile.is_archived == False)
@@ -582,19 +666,33 @@ class EvidenceService:
         return [cls._build_evidence_response(item) for item in items]
 
     @classmethod
-    def get_evidence_detail(cls, db: Session, evidence_id: str) -> EvidenceFileResponse:
-        """Retrieves single evidence asset by ID."""
+    def get_evidence_detail(
+        cls,
+        db: Session,
+        evidence_id: str,
+        user: Optional[User] = None
+    ) -> EvidenceFileResponse:
+        """Retrieves single evidence asset by ID with access control enforcement."""
         evidence = db.execute(select(EvidenceFile).where(EvidenceFile.id == evidence_id)).scalar_one_or_none()
         if not evidence:
             raise NotFoundException(f"Evidence file '{evidence_id}' not found.")
+
+        cls._check_evidence_access(db, evidence, user, action="read")
         return cls._build_evidence_response(evidence)
 
     @classmethod
-    def get_version_history(cls, db: Session, evidence_id: str) -> EvidenceVersionHistoryResponse:
-        """Retrieves all versions in the lineage of this evidence asset."""
+    def get_version_history(
+        cls,
+        db: Session,
+        evidence_id: str,
+        user: Optional[User] = None
+    ) -> EvidenceVersionHistoryResponse:
+        """Retrieves all versions in the lineage of this evidence asset with access control enforcement."""
         evidence = db.execute(select(EvidenceFile).where(EvidenceFile.id == evidence_id)).scalar_one_or_none()
         if not evidence:
             raise NotFoundException(f"Evidence file '{evidence_id}' not found.")
+
+        cls._check_evidence_access(db, evidence, user, action="read")
 
         # Find root parent
         root = evidence
@@ -619,11 +717,18 @@ class EvidenceService:
         )
 
     @classmethod
-    def get_audit_trail(cls, db: Session, evidence_id: str) -> EvidenceAuditLogResponse:
+    def get_audit_trail(
+        cls,
+        db: Session,
+        evidence_id: str,
+        user: Optional[User] = None
+    ) -> EvidenceAuditLogResponse:
         """Retrieves and cryptographically verifies the SHA-256 audit hash chain for an evidence asset."""
         evidence = db.execute(select(EvidenceFile).where(EvidenceFile.id == evidence_id)).scalar_one_or_none()
         if not evidence:
             raise NotFoundException(f"Evidence file '{evidence_id}' not found.")
+
+        cls._check_evidence_access(db, evidence, user, action="audit")
 
         events = db.execute(
             select(EvidenceAuditEvent).where(EvidenceAuditEvent.evidence_id == evidence.id).order_by(EvidenceAuditEvent.created_at.asc())

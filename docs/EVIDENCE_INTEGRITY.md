@@ -112,3 +112,4 @@ The `/api/v1/evidence/{id}/verify-integrity` endpoint performs real-time storage
 3. Compares against `EvidenceFile.file_hash`.
 4. If identical: returns `is_valid: true` and logs `INTEGRITY_VERIFIED`.
 5. If mismatched (e.g. disk corruption, unauthorized replacement): returns `is_valid: false` and logs `INTEGRITY_TAMPERED`.
+

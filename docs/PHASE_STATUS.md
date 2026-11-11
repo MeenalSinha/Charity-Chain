@@ -119,3 +119,24 @@
 | **5.9** | Streamlit UI Evidence Management Integration | **COMPLETED** | Integrated Phase 5 Evidence Engine tab into `app_ui.py` featuring multi-file uploads, live integrity checking, replacement version submissions, and audit trail exploration. |
 | **5.10** | Comprehensive Automated Testing (157 Tests Passing) | **COMPLETED** | All 157 tests passed in 68.72s with 0 failures and 0 errors across 51 test files (133 previous + 24 new Phase 5 tests). |
 
+---
+
+## Phase 6: AI Evidence Verification Engine (Computer Vision, Forensics, Geospatial, Progress & XAI)
+
+| Task ID | Task Description | Status | Verification Note |
+|:---:|:---|:---:|:---|
+| **6.1** | Pre-Phase 6 Audit & Foundation Hardening | **COMPLETED** | Conducted comprehensive audit of Phase 5, fixed authorization boundaries across evidence endpoints (`_check_evidence_access`), replaced unbounded buffering with 64KB chunked streaming, verified tests. |
+| **6.2** | Typed Data Contracts & AI Provider Interface | **COMPLETED** | Defined schemas in `backend/app/integrations/ai/schemas.py` and `AIProviderInterface` in `backend/app/integrations/ai/provider.py`. |
+| **6.3** | Real YOLOv8 Object Detection & Category Mapping | **COMPLETED** | Integrated Ultralytics YOLOv8 with SHA-256 pinned weights check (`f59b3d833e2ff32e194b5bb8e08d211dc7c5bdf144b90d2c8412c47ccfc83b36`) and configurable category-aware relevance mapping in `relevance_mapper.py`. |
+| **6.4** | JPEG Error Level Analysis (ELA) Forensics | **COMPLETED** | Implemented DCT compression discrepancy analysis at quality=90, statistical variance calculation, and amplified diagnostic heatmap generation; non-JPEGs handled as `NOT_APPLICABLE`. |
+| **6.5** | Perceptual Hashing & SSIM Progress Comparison | **COMPLETED** | 64-bit DCT perceptual hash Hamming distance and SSIM calculation in `progress_comparator.py`; duplicate baseline rejection vs visible physical progression detection. |
+| **6.6** | EXIF & GPS Geospatial Proximity Engine | **COMPLETED** | Authentic EXIF extraction, camera/software audit (flags Photoshop/GIMP), DMS coordinate parsing, and Haversine distance evaluation against milestone coordinates. |
+| **6.7** | Safe Bounded PDF Document Processing | **COMPLETED** | Safe parsing via `pypdf` with 10-page / 50MB limits, metadata extraction, and honest limitation reporting. |
+| **6.8** | Grounded Explainable AI (XAI) & Prompt Defense | **COMPLETED** | Prompt-injection input sanitization, grounded narrative generation, deterministic rule-based fallback, and mandatory `calibration_status = "UNVALIDATED"` reporting. |
+| **6.9** | Database Models & Alembic Migration 006 | **COMPLETED** | Extended `verification_reports`, `verification_check_records`, and added `verification_jobs` table; migration `006_phase6_ai_verification.py` verified bidirectionally (`upgrade`/`downgrade`/`upgrade`). |
+| **6.10** | Domain Service & Asynchronous Job Worker | **COMPLETED** | `VerificationService` with queuing, status tracking, automatic retries, sync/async worker execution, and cryptographic audit chaining (`AI_VERIFIED`). |
+| **6.11** | REST API Endpoints & OpenAPI Documentation | **COMPLETED** | 6 REST endpoints under `/api/v1/verification/` mounted and verified in OpenAPI documentation. |
+| **6.12** | Streamlit UI Integration & Legacy Adapter | **COMPLETED** | Forensic indicators and diagnostic artifacts panel in `app_ui.py`; legacy `EnhancedAIVerifier` in `charity_tracker.py` wired to backend engine. |
+| **6.13** | Comprehensive Automated Testing (197 Tests Passing) | **COMPLETED** | All 197 tests passed in 136.77s with 0 failures and 0 errors across 61 test files (157 previous + 40 new Phase 6 tests). |
+
+

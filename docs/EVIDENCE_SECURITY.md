@@ -85,3 +85,4 @@ To guarantee evidence provenance:
 - **No Physical File Deletion**: The `archive_evidence` endpoint sets `is_archived = True` and records `archived_at`. The physical bytes on local disk or S3 bucket are **never deleted**.
 - **Audit Persistence**: Archival is recorded in the SHA-256 audit ledger as an `ARCHIVED` event with the operator ID and justification.
 - **Permanent Availability for Audits**: Even archived evidence can be retrieved by platform reviewers and admins for historical investigations.
+
