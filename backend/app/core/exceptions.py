@@ -46,20 +46,22 @@ class UnauthorizedTransitionError(CharityChainException):
 
 
 class AuthenticationError(CharityChainException):
-    def __init__(self, message: str = "Invalid credentials or expired session."):
+    def __init__(self, message: str = "Invalid credentials or expired session.", code: str = "AUTHENTICATION_FAILED", status_code: int = 401, details: Optional[Dict[str, Any]] = None):
         super().__init__(
             message=message,
-            code="AUTHENTICATION_FAILED",
-            status_code=401
+            code=code,
+            status_code=status_code,
+            details=details
         )
 
 
 class PermissionDeniedError(CharityChainException):
-    def __init__(self, message: str = "Insufficient permissions to perform this operation."):
+    def __init__(self, message: str = "Insufficient permissions to perform this operation.", code: str = "PERMISSION_DENIED", status_code: int = 403, details: Optional[Dict[str, Any]] = None):
         super().__init__(
             message=message,
-            code="PERMISSION_DENIED",
-            status_code=403
+            code=code,
+            status_code=status_code,
+            details=details
         )
 
 
@@ -100,4 +102,30 @@ class ConfigurationError(CharityChainException):
             code="CONFIGURATION_ERROR",
             status_code=500
         )
+
+
+class ConflictException(CharityChainException):
+    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+        super().__init__(
+            message=message,
+            code="CONFLICT",
+            status_code=409,
+            details=details
+        )
+
+
+class ValidationException(CharityChainException):
+    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None, status_code: int = 422):
+        super().__init__(
+            message=message,
+            code="VALIDATION_ERROR",
+            status_code=status_code,
+            details=details
+        )
+
+
+# Standard Aliases
+AuthenticationException = AuthenticationError
+ForbiddenException = PermissionDeniedError
+NotFoundException = EntityNotFoundError
 

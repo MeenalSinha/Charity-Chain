@@ -10,9 +10,9 @@ CharityChain is an AI-powered charitable giving and impact verification platform
 
 | Phase | Title | Scope Summary | Status |
 |:---:|:---|:---|:---:|
-| **Phase 0** | **Existing Project Audit, Stabilization & Baseline Verification** | Comprehensive codebase inspection, bug fixing, removal of fabricated AI/GPS/IPFS results, security audit, test suite creation, application stabilization. | **IN_PROGRESS** |
-| **Phase 1** | **Architecture, Product Foundation & Domain Design** | Modular monolith design, FastAPI core, Pydantic configuration, PostgreSQL + Alembic models, currency-safe financial contracts, state machines, integration abstractions. | **NOT_STARTED** |
-| **Phase 2** | **Authentication, Identity & Access Control** | Multi-role user authentication (Donor, NGO Admin, Reviewer, Platform Admin), JWT session handling, RBAC enforcement. | **PLANNED** |
+| **Phase 0** | **Existing Project Audit, Stabilization & Baseline Verification** | Comprehensive codebase inspection, bug fixing, removal of fabricated AI/GPS/IPFS results, security audit, test suite creation, application stabilization. | **COMPLETED** |
+| **Phase 1** | **Architecture, Product Foundation & Domain Design** | Modular monolith design, FastAPI core, Pydantic configuration, PostgreSQL + Alembic models, currency-safe financial contracts, state machines, integration abstractions. | **COMPLETED** |
+| **Phase 2** | **Authentication, Identity & Access Control** | Multi-role user authentication (Donor, NGO Admin, Reviewer, Platform Admin), JWT session handling, RBAC enforcement. | **COMPLETED** |
 | **Phase 3** | **Organization & Project Management** | NGO onboarding, identity verification, multi-milestone project lifecycle, geofencing, documentation validation. | **PLANNED** |
 | **Phase 4** | **Payment Gateway Integration (PayPal REST API)** | Orders API, payment authorizations, captures, refund handling, currency conversion, webhook signature verification. | **PLANNED** |
 | **Phase 5** | **Evidence Management System** | Resilient object storage (S3/MinIO), multi-file uploads, MIME/magic byte validation, deduplication, tamper-evident hashing. | **PLANNED** |

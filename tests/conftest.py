@@ -70,3 +70,17 @@ def ai_verifier():
     """Provides an instance of EnhancedAIVerifier."""
     return EnhancedAIVerifier()
 
+
+
+@pytest.fixture
+def db_session():
+    """Provides a transactional SQLAlchemy session for testing."""
+    from backend.app.db.session import SessionFactory, engine
+    from backend.app.db.base import Base
+    import backend.app.db.models  # ensure models registered
+    Base.metadata.create_all(bind=engine)
+    session = SessionFactory()
+    try:
+        yield session
+    finally:
+        session.close()

@@ -57,3 +57,30 @@ class AuditEvent(Base):
     correlation_id = Column(String(64), nullable=True, index=True)
     details_json = Column(Text, nullable=True)
 
+    def __init__(self, **kwargs):
+        import json
+        if "entity_name" in kwargs and "entity_type" not in kwargs:
+            kwargs["entity_type"] = kwargs.pop("entity_name")
+        if "after_state" in kwargs and "details_json" not in kwargs:
+            val = kwargs.pop("after_state")
+            kwargs["details_json"] = json.dumps(val) if isinstance(val, (dict, list)) else str(val)
+        super().__init__(**kwargs)
+
+    @property
+    def entity_name(self) -> str:
+        return self.entity_type
+
+    @entity_name.setter
+    def entity_name(self, val: str):
+        self.entity_type = val
+
+    @property
+    def after_state(self):
+        import json
+        if self.details_json:
+            try:
+                return json.loads(self.details_json)
+            except Exception:
+                return self.details_json
+        return None
+

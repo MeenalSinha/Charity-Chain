@@ -14,7 +14,47 @@ class EnvironmentType(str, Enum):
     PRODUCTION = "production"
 
 
+class PlatformRole(str, Enum):
+    """Platform-wide system roles."""
+    DONOR = "DONOR"
+    REVIEWER = "REVIEWER"
+    PLATFORM_ADMIN = "PLATFORM_ADMIN"
+
+
+class OrganizationRole(str, Enum):
+    """Organization-scoped membership roles."""
+    OWNER = "OWNER"
+    ADMIN = "ADMIN"
+    MEMBER = "MEMBER"
+
+
+class AccountStatus(str, Enum):
+    """User account lifecycle status."""
+    PENDING_VERIFICATION = "PENDING_VERIFICATION"
+    ACTIVE = "ACTIVE"
+    LOCKED = "LOCKED"
+    SUSPENDED = "SUSPENDED"
+    DEACTIVATED = "DEACTIVATED"
+
+
+class InvitationStatus(str, Enum):
+    """Organization invitation status."""
+    PENDING = "PENDING"
+    ACCEPTED = "ACCEPTED"
+    REJECTED = "REJECTED"
+    EXPIRED = "EXPIRED"
+    REVOKED = "REVOKED"
+
+
+class TokenType(str, Enum):
+    """Cryptographic security token types."""
+    EMAIL_VERIFICATION = "EMAIL_VERIFICATION"
+    PASSWORD_RESET = "PASSWORD_RESET"
+    REFRESH = "REFRESH"
+
+
 class UserRole(str, Enum):
+    """Legacy compatibility enum mapping both platform and legacy roles."""
     DONOR = "DONOR"
     NGO_ADMIN = "NGO_ADMIN"
     NGO_MEMBER = "NGO_MEMBER"

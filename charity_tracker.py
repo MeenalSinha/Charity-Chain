@@ -948,35 +948,120 @@ class VisualizationManager:
 # ============================================================================
 
 class RoleManager:
-    """Role selection and view guard for Streamlit interface."""
-    ROLES = ['NGO', 'Donor', 'Reviewer', 'Guest']
+    """
+    RoleManager - Transitional Authenticated Identity Integration for Streamlit.
+    Replaces the insecure role selector with genuine authentication against the database.
+    """
+    PLATFORM_ROLES = ['DONOR', 'REVIEWER', 'PLATFORM_ADMIN']
+    LEGACY_ROLE_MAP = {
+        'NGO': ['PLATFORM_ADMIN', 'OWNER', 'ADMIN', 'MEMBER', 'NGO_ADMIN'],
+        'Reviewer': ['PLATFORM_ADMIN', 'REVIEWER'],
+        'Donor': ['PLATFORM_ADMIN', 'DONOR'],
+        'Admin': ['PLATFORM_ADMIN'],
+    }
     
     @staticmethod
     def login_page():
         if not STREAMLIT_AVAILABLE:
             return
-        if 'user_role' not in st.session_state:
+        if 'auth_user' not in st.session_state:
+            st.session_state.auth_user = None
             st.session_state.user_role = 'Guest'
-            st.session_state.user_id = 'demo_user'
+            st.session_state.user_id = 'guest_user'
+
         st.sidebar.markdown("---")
-        st.sidebar.subheader("🔐 Active Role")
-        current_role = st.session_state.user_role
-        idx = RoleManager.ROLES.index(current_role) if current_role in RoleManager.ROLES else 0
-        selected = st.sidebar.selectbox("Select Role", RoleManager.ROLES, index=idx)
-        if selected != st.session_state.user_role:
-            st.session_state.user_role = selected
-            st.rerun()
+        st.sidebar.subheader("🔐 Identity & Access")
+
+        if st.session_state.auth_user:
+            u = st.session_state.auth_user
+            st.sidebar.success(f"👤 **{u.get('full_name')}**")
+            st.sidebar.markdown(f"**Role:** `{u.get('role')}`  \n**Email:** `{u.get('email')}`")
+            if st.sidebar.button("🚪 Logout", key="btn_logout_sidebar", use_container_width=True):
+                st.session_state.auth_user = None
+                st.session_state.auth_token = None
+                st.session_state.user_role = 'Guest'
+                st.session_state.user_id = 'guest_user'
+                st.rerun()
+        else:
+            auth_tab_login, auth_tab_reg = st.sidebar.tabs(["Login", "Register"])
+            with auth_tab_login:
+                with st.form("form_sidebar_login"):
+                    l_email = st.text_input("Email", value="", placeholder="admin@charitychain.org")
+                    l_pwd = st.text_input("Password", type="password")
+                    submitted = st.form_submit_button("Sign In", type="primary", use_container_width=True)
+                    if submitted:
+                        if not l_email or not l_pwd:
+                            st.error("Please enter email and password.")
+                        else:
+                            try:
+                                from backend.app.db.session import SessionFactory
+                                from backend.app.services.auth_service import AuthService
+                                from backend.app.api.schemas import LoginRequest
+                                with SessionFactory() as db:
+                                    t = AuthService.authenticate_user(db, LoginRequest(email=l_email, password=l_pwd))
+                                    st.session_state.auth_token = t.access_token
+                                    st.session_state.auth_user = {
+                                        "id": t.user_id,
+                                        "email": t.email,
+                                        "full_name": t.full_name,
+                                        "role": t.role.value
+                                    }
+                                    st.session_state.user_role = t.role.value
+                                    st.session_state.user_id = t.user_id
+                                    st.rerun()
+                            except Exception as e:
+                                st.error(str(e))
+            with auth_tab_reg:
+                with st.form("form_sidebar_register"):
+                    r_name = st.text_input("Full Name", placeholder="Jane Doe")
+                    r_email = st.text_input("Email", placeholder="jane@charity.org")
+                    r_pwd = st.text_input("Password", type="password")
+                    r_pwd_c = st.text_input("Confirm Password", type="password")
+                    reg_sub = st.form_submit_button("Register", use_container_width=True)
+                    if reg_sub:
+                        try:
+                            from backend.app.db.session import SessionFactory
+                            from backend.app.services.auth_service import AuthService
+                            from backend.app.api.schemas import RegisterRequest
+                            from backend.app.db.models.users import User, AccountStatus
+                            from sqlalchemy import select
+                            with SessionFactory() as db:
+                                reg = AuthService.register_user(db, RegisterRequest(
+                                    full_name=r_name, email=r_email,
+                                    password=r_pwd, password_confirm=r_pwd_c
+                                ))
+                                # Activate for local dev usability
+                                u = db.execute(select(User).where(User.id == reg.user_id)).scalar_one_or_none()
+                                if u:
+                                    u.is_verified = True
+                                    u.account_status = AccountStatus.ACTIVE
+                                    db.commit()
+                                st.success("Account created and activated! You can now log in.")
+                        except Exception as e:
+                            st.error(str(e))
     
     @staticmethod
     def require_role(allowed_roles: List[str]) -> bool:
         if not STREAMLIT_AVAILABLE:
             return True
-        if 'user_role' not in st.session_state:
-            st.session_state.user_role = 'Guest'
-        if st.session_state.user_role not in allowed_roles:
-            st.warning(f"Access restricted. Requires role: {', '.join(allowed_roles)}")
+        if 'auth_user' not in st.session_state or not st.session_state.auth_user:
+            st.warning("🔒 Authentication Required. Please sign in via the sidebar.")
             return False
-        return True
+
+        user_role = st.session_state.auth_user.get('role', 'DONOR')
+        # Check direct match or mapped match
+        if user_role == 'PLATFORM_ADMIN':
+            return True
+
+        for req_role in allowed_roles:
+            if user_role == req_role:
+                return True
+            valid_roles = RoleManager.LEGACY_ROLE_MAP.get(req_role, [req_role])
+            if user_role in valid_roles:
+                return True
+
+        st.error(f"Access restricted. Required role: {', '.join(allowed_roles)}. Your role: {user_role}")
+        return False
 
 
 # ============================================================================

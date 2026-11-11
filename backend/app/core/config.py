@@ -54,8 +54,15 @@ class Settings(BaseSettings):
         description="JWT cryptographic signing secret"
     )
     JWT_ALGORITHM: str = Field(default="HS256", description="JWT algorithm")
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=60, description="Token validity window")
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=15, description="Token validity window (default 15 mins)")
     REFRESH_TOKEN_EXPIRE_DAYS: int = Field(default=7, description="Refresh token validity")
+    MAX_FAILED_LOGIN_ATTEMPTS: int = Field(default=5, description="Attempts before temporary lockout")
+    ACCOUNT_LOCKOUT_MINUTES: int = Field(default=15, description="Duration of account lockout in minutes")
+    EMAIL_VERIFICATION_EXPIRE_HOURS: int = Field(default=24, description="Email verification token validity")
+    PASSWORD_RESET_EXPIRE_MINUTES: int = Field(default=30, description="Password reset token validity")
+    INVITATION_EXPIRE_DAYS: int = Field(default=7, description="Organization invitation validity")
+    PASSWORD_MIN_LENGTH: int = Field(default=8, description="Minimum password length")
+    PASSWORD_MAX_LENGTH: int = Field(default=128, description="Maximum password length")
 
     # 4. Storage & Files
     STORAGE_PROVIDER: Literal["local", "s3", "pinata"] = Field(

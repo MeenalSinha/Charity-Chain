@@ -37,3 +37,28 @@
 | **1.12** | Dev Environment & Local Infrastructure | **COMPLETED** | Created `docker-compose.yml` (PostgreSQL 16, Redis 7, Backend API) and `backend/Dockerfile`. |
 | **1.13** | Frontend Migration Strategy | **COMPLETED** | Documented coexistence and Next.js roadmap in `docs/ARCHITECTURE.md`. |
 | **1.14** | Future Architecture Readiness | **COMPLETED** | Verified modular readiness for Phases 2-14 with 50 passing automated tests. |
+
+---
+
+## Phase 2: Authentication, Identity & Access Control
+
+| Task ID | Task Description | Status | Verification Note |
+|:---:|:---|:---:|:---|
+| **2.1** | Role & Identity Architecture | **COMPLETED** | Implemented `PlatformRole` (`DONOR`, `REVIEWER`, `PLATFORM_ADMIN`) and `OrganizationRole` (`OWNER`, `ADMIN`, `MEMBER`) in `backend/app/core/constants.py` with backward compatibility. |
+| **2.2** | User Registration & Email Normalization | **COMPLETED** | Implemented in `backend/app/services/auth_service.py` with RFC 5322 validation, lowercase/trim normalization, and initial `PENDING_VERIFICATION` status. |
+| **2.3** | Password Security & Cryptography | **COMPLETED** | Implemented Argon2id via `argon2-cffi` in `backend/app/core/security.py` with OWASP-compliant memory (64MB) and time cost (3), constant-time comparison. |
+| **2.4** | Email Verification Workflow | **COMPLETED** | Single-use 256-bit cryptographically secure tokens with SHA-256 storage, 24-hour expiration, and in-memory testable sink in `backend/app/integrations/notifications/dev_sink.py`. |
+| **2.5** | Authentication, Anti-Enumeration & Lockout | **COMPLETED** | Email/password login with constant-time verification, identical error messages on invalid email or password, and automatic lockout after 5 failed attempts for 15 minutes. |
+| **2.6** | JWT Token Engine & Claims | **COMPLETED** | RFC 7519 standard claims (`sub`, `iss`, `aud`, `exp`, `nbf`, `iat`, `jti`, `role`), short-lived access tokens (15m default), and explicit HS256 algorithm validation. |
+| **2.7** | Persistent Session Management & Refresh Rotation | **COMPLETED** | Implemented `UserSession` model in `backend/app/db/models/users.py`, single-use refresh token rotation with token family reuse compromise detection revoking entire session families. |
+| **2.8** | Session Invalidation, Logout & Revocation | **COMPLETED** | Dedicated endpoints `/auth/logout`, `/auth/logout-all`, and `/auth/sessions/{id}/revoke` updating session state and invalidating access. |
+| **2.9** | Password Recovery & Reset Workflow | **COMPLETED** | Anti-enumeration forgot-password endpoint, single-use 30-minute reset tokens, password change with immediate revocation of all existing active sessions. |
+| **2.10** | User Profile & Password Change | **COMPLETED** | Authenticated `/users/me/profile` updates with input sanitization and `/auth/change-password` requiring current password verification. |
+| **2.11** | Authorization & Access Control Engine (RBAC) | **COMPLETED** | Implemented `get_current_user`, `require_platform_role`, `require_org_role`, and IDOR ownership checks in `backend/app/core/permissions.py`. |
+| **2.12** | Organization Scoping & Invitations | **COMPLETED** | Implemented `OrganizationMembership` and `OrganizationInvitation` with 7-day expiration, role-scoped permissions, and strict last-owner protection. |
+| **2.13** | Audit Logging for Identity Events | **COMPLETED** | Structured security and audit trail for registration, login success/failure, lockouts, token reuse alerts, and role changes via `AuditEvent` model. |
+| **2.14** | Administrative User Management & CLI Bootstrapping | **COMPLETED** | Implemented `/admin/users` pagination, status management, role escalation guards, and secure CLI admin provisioning in `backend/app/cli.py`. |
+| **2.15** | Rate Limiting & Abuse Prevention | **COMPLETED** | Enforced lockout tracking, failed attempt counters, and per-account IP/user-agent auditing. |
+| **2.16** | Streamlit Transitional Authentication | **COMPLETED** | Retired unauthenticated sidebar role select box in `charity_tracker.py`; integrated real Sign In / Register tabs backed by `AuthService` and `SessionFactory`. |
+| **2.17** | Automated Testing & Security Verification | **COMPLETED** | 78 tests passing (100%), including dedicated privilege escalation, token reuse detection, brute force lockout, and end-to-end authentication workflow tests. |
+

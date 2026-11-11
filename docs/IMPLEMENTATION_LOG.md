@@ -57,3 +57,31 @@
 8. **Automated Test Suite Expansion**:
    - Expanded test suite from 29 to 50 automated tests covering currency arithmetic, state machines, database models, Pydantic settings, exception handling, and FastAPI endpoints.
    - Achieved 100% pass rate (50 passed in 6.95s).
+
+
+## 2026-11-11: Phase 2 Authentication, Identity & Access Control Implemented
+
+### Architectural Decisions & Implementations
+1. **Separation of Platform and Organization Roles**:
+   - Disentangled the monolithic role model into global `PlatformRole` (`DONOR`, `REVIEWER`, `PLATFORM_ADMIN`) and multi-tenant `OrganizationRole` (`OWNER`, `ADMIN`, `MEMBER`).
+   - Maintained `UserRole` as a backward-compatible mapping for existing codebase components.
+2. **Argon2id Password Cryptography**:
+   - Replaced raw/insecure password handling with standard Argon2id via `argon2-cffi`.
+   - Tuned parameters: 64MB memory cost, 3 iterations, 4 parallelism threads, 32-byte hash length, with constant-time verification.
+3. **Session & Refresh Token Lifecycle (Compromise Detection)**:
+   - Built a persistent `UserSession` model tracking IP, user-agent, creation, and last-active timestamps.
+   - Implemented single-use refresh token rotation with a SHA-256 storage hash.
+   - Built Token Family Compromise Detection: if a previously-rotated refresh token is submitted, all active sessions belonging to that token family are revoked immediately.
+4. **Anti-Enumeration and Brute Force Lockout**:
+   - Login, forgot-password, and verification resend endpoints return identical generic timing-safe responses regardless of whether the email exists.
+   - Account lockout triggers automatically after 5 consecutive failed attempts, locking the account for 15 minutes.
+5. **Multi-Tenancy & Last Owner Protection**:
+   - Scoped organization membership via `OrganizationMembership` and `OrganizationInvitation`.
+   - Prohibited deleting or demoting the last remaining active `OWNER` of an organization.
+6. **Administrative CLI Bootstrapping**:
+   - Implemented `backend/app/cli.py` providing `create-platform-admin` command with email normalization, password confirmation, and secure DB bootstrapping.
+7. **Streamlit Transitional UI Security**:
+   - Retired the insecure sidebar select box that allowed arbitrary role-switching without authentication.
+   - Added real Sign In and Register tabs connected to `AuthService` and persistent database session factory.
+8. **Automated Verification Expansion**:
+   - Expanded test suite from 50 to 78 tests across unit, integration, functional, and security tiers, achieving 100% pass rate (78 passed in 5.01s).
