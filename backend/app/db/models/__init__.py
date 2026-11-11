@@ -17,7 +17,11 @@ from backend.app.db.models.evidence import (
     EvidenceFile, VerificationReport, VerificationCheckRecord,
     VerificationJob, EvidenceAuditEvent, compute_audit_hash
 )
-from backend.app.db.models.reviews_impact import ReviewTask, ReviewDecisionRecord, ImpactCertificate, AuditEvent
+from backend.app.db.models.reviews_impact import (
+    ReviewCase, ReviewCaseEvidence, ReviewTask, ReviewDecisionRecord,
+    ReviewDispute, ReviewDisputeMessage, ReviewAuditEvent,
+    compute_review_audit_hash, ImpactCertificate, AuditEvent
+)
 
 __all__ = [
     "Base",
@@ -48,8 +52,14 @@ __all__ = [
     "VerificationJob",
     "EvidenceAuditEvent",
     "compute_audit_hash",
+    "ReviewCase",
+    "ReviewCaseEvidence",
     "ReviewTask",
     "ReviewDecisionRecord",
+    "ReviewDispute",
+    "ReviewDisputeMessage",
+    "ReviewAuditEvent",
+    "compute_review_audit_hash",
     "ImpactCertificate",
     "AuditEvent"
 ]

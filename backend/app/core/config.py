@@ -186,6 +186,20 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = Field(default="INFO", description="Application log level")
     LOG_FORMAT: Literal["json", "text"] = Field(default="json", description="Log format")
 
+    # 7. Human Review & Decision Workflows (Phase 7)
+    REVIEW_REQUIRED_APPROVALS: int = Field(default=2, ge=1, le=5, description="Number of independent approvals required for milestone sign-off")
+    REVIEW_ASSIGNMENT_POLICY: str = Field(default="DUAL_INDEPENDENT", description="Reviewer assignment policy")
+    REVIEW_MAX_OPEN_TASKS_PER_REVIEWER: int = Field(default=5, ge=1, description="Maximum active open reviews per reviewer")
+    REVIEW_TASK_DUE_HOURS: int = Field(default=72, ge=1, description="Hours until reviewer task is considered overdue")
+    REVIEW_SECOND_REVIEW_REQUIRED: bool = Field(default=True, description="Enforce dual-key second review before final milestone approval")
+    REVIEW_APPEAL_WINDOW_HOURS: int = Field(default=168, ge=1, description="Appeal submission window in hours (7 days)")
+    REVIEW_MAX_APPEALS_PER_CASE: int = Field(default=1, ge=1, description="Maximum formal appeals permitted per review case")
+    REVIEW_REVISION_DUE_HOURS: int = Field(default=336, ge=1, description="Hours granted to NGO for revision response (14 days)")
+    REVIEW_MAX_REASSIGNMENTS: int = Field(default=3, ge=0, description="Maximum reassignments permitted per task")
+    REVIEW_REQUIRE_COMPLETED_AI_REPORT: bool = Field(default=True, description="Require Phase 6 AI verification report before human review assignment")
+    REVIEW_REQUIRE_EVIDENCE_INTEGRITY: bool = Field(default=True, description="Require SHA-256 evidence integrity check pass")
+    REVIEW_POLICY_VERSION: str = Field(default="v7.0.0", description="Active human review policy version")
+
     @model_validator(mode="after")
     def validate_production_security(self):
         """Enforces that production deployments cannot use development secrets."""
@@ -197,6 +211,8 @@ class Settings(BaseSettings):
             if self.STORAGE_PROVIDER in ("s3", "minio"):
                 if not self.S3_ACCESS_KEY or not self.S3_SECRET_KEY:
                     raise ValueError("S3_ACCESS_KEY and S3_SECRET_KEY must be provided for S3/MinIO storage in production!")
+            if not self.REVIEW_SECOND_REVIEW_REQUIRED or self.REVIEW_REQUIRED_APPROVALS < 2:
+                raise ValueError("Dual-key approval cannot be disabled in production! REVIEW_SECOND_REVIEW_REQUIRED=True and REVIEW_REQUIRED_APPROVALS>=2 required.")
         return self
 
 

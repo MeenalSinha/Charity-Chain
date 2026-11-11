@@ -29,7 +29,9 @@ from backend.app.core.config import settings
 from backend.app.core.constants import (
     PlatformRole, OrganizationRole, OrganizationStatus, OrganizationType,
     OrganizationDocumentType, ProjectStatus, MilestoneStatus, ProjectVisibility,
-    DonationStatus, PaymentOrderStatus, PaymentCaptureStatus, PaymentRefundStatus
+    DonationStatus, PaymentOrderStatus, PaymentCaptureStatus, PaymentRefundStatus,
+    ReviewDecision, ReviewCaseStatus, ReviewAssignmentStatus,
+    ReconciliationResult, DisputeStatus, DisputeCategory, DisputeResolution
 )
 from backend.app.api.schemas import (
     CreateOrganizationRequest, UpdateOrganizationRequest, OrganizationDecisionRequest,
@@ -41,6 +43,7 @@ from backend.app.services.project_service import ProjectService
 from backend.app.services.donation_service import DonationService
 from backend.app.services.evidence_service import EvidenceService
 from backend.app.services.verification_service import VerificationService
+from backend.app.services.review_service import ReviewService
 from backend.app.integrations.storage.local import LocalStorageProvider
 
 
@@ -581,7 +584,14 @@ def page_reviewer_queue():
         st.warning("🔒 Reviewer verification queue requires `REVIEWER` or `PLATFORM_ADMIN` platform role.")
         return
 
-    tab_orgs, tab_projs = st.tabs(["🏢 Organizations Queue", "📋 Projects Queue"])
+    tab_orgs, tab_projs, tab_milestones, tab_my_queue, tab_disputes, tab_audit = st.tabs([
+        "🏢 Organizations",
+        "📋 Projects",
+        "🔍 Milestone Review Cases",
+        "👤 My Assigned Reviews",
+        "⚖️ Formal Disputes",
+        "📜 Cryptographic Audit"
+    ])
 
     with tab_orgs:
         st.subheader("Pending Organization Verifications")
@@ -720,6 +730,261 @@ def page_reviewer_queue():
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"Error: {e}")
+
+    with tab_milestones:
+        st.subheader("Milestone Review Cases (Dual-Key Governance)")
+        with SessionFactory() as db:
+            from backend.app.db.models.reviews_impact import ReviewCase, ReviewTask
+            from backend.app.db.models.users import User
+            all_cases = db.execute(select(ReviewCase).order_by(ReviewCase.created_at.desc())).scalars().all()
+            eligible_reviewers = db.execute(
+                select(User).where(User.role.in_([PlatformRole.REVIEWER, PlatformRole.PLATFORM_ADMIN]))
+            ).scalars().all()
+
+        if not all_cases:
+            st.info("No milestone review cases submitted yet.")
+        else:
+            for c in all_cases:
+                with st.expander(f"Case `{c.id[:8]}...` • Round #{c.submission_round} • Status: {c.status}", expanded=False):
+                    st.markdown(f"**Milestone ID:** `{c.milestone_id}` | **Organization ID:** `{c.organization_id}`")
+                    st.markdown(f"**Snapshot Digest:** `{c.snapshot_digest}`")
+                    st.markdown(f"**Status:** `{c.status}` | **Final Decision:** `{c.final_decision or 'Pending'}`")
+                    if c.submission_notes:
+                        st.caption(f"NGO Notes: {c.submission_notes}")
+
+                    # Admin Assignment controls
+                    if role == PlatformRole.PLATFORM_ADMIN.value and c.status in ("SUBMITTED", "ESCALATED"):
+                        st.markdown("##### 👥 Assign Dual Independent Reviewers")
+                        rev_options = {u.id: f"{u.full_name or u.email} ({u.role.value})" for u in eligible_reviewers}
+                        col_r1, col_r2 = st.columns(2)
+                        with col_r1:
+                            r1_id = st.selectbox(f"Reviewer 1 (Slot 1) - Case {c.id[:8]}", options=list(rev_options.keys()), format_func=lambda x: rev_options[x], key=f"r1_{c.id}")
+                        with col_r2:
+                            r2_id = st.selectbox(f"Reviewer 2 (Slot 2) - Case {c.id[:8]}", options=list(rev_options.keys()), format_func=lambda x: rev_options[x], key=f"r2_{c.id}")
+
+                        if st.button("Assign Reviewers", key=f"btn_assign_{c.id}"):
+                            try:
+                                with SessionFactory() as db:
+                                    admin_u = db.get(User, user_id)
+                                    ReviewService.assign_reviewers(
+                                        db=db,
+                                        case_id=c.id,
+                                        admin_user=admin_u,
+                                        reviewer_1_id=r1_id,
+                                        reviewer_2_id=r2_id
+                                    )
+                                st.success("✅ Dual reviewers assigned successfully!")
+                                time.sleep(1)
+                                st.rerun()
+                            except Exception as ex:
+                                st.error(f"❌ Assignment failed: {ex}")
+
+    with tab_my_queue:
+        st.subheader("👤 My Assigned Review Tasks")
+        with SessionFactory() as db:
+            from backend.app.db.models.users import User
+            curr_u = db.get(User, user_id)
+            my_tasks = ReviewService.get_reviewer_queue(db=db, reviewer=curr_u)
+
+        if not my_tasks:
+            st.info("You have no pending assigned review tasks.")
+        else:
+            sel_task_id = st.selectbox(
+                "Select Assigned Task to Inspect",
+                options=[t["task_id"] for t in my_tasks],
+                format_func=lambda x: next(f"Slot {t['slot']} • {t['project_title']} - {t['milestone_title']} [{t['assignment_state']}]" for t in my_tasks if t["task_id"] == x)
+            )
+            selected_task = next(t for t in my_tasks if t["task_id"] == sel_task_id)
+
+            col_t1, col_t2 = st.columns(2)
+            with col_t1:
+                st.markdown(f"**Project:** {selected_task['project_title']}")
+                st.markdown(f"**Milestone:** {selected_task['milestone_title']}")
+                st.markdown(f"**Organization:** {selected_task['organization_name']}")
+            with col_t2:
+                st.markdown(f"**Slot:** #{selected_task['slot']} | **Assignment Status:** `{selected_task['assignment_state']}`")
+                st.markdown(f"**Due Date:** `{selected_task['due_at']}`")
+
+            # Actions if ASSIGNED
+            if selected_task["assignment_state"] == "ASSIGNED":
+                col_a1, col_a2, col_a3 = st.columns(3)
+                with col_a1:
+                    if st.button("Accept Assignment", key=f"acc_{sel_task_id}", type="primary"):
+                        with SessionFactory() as db:
+                            ReviewService.accept_assignment(db, sel_task_id, curr_u)
+                        st.success("Assignment accepted! You may now review evidence.")
+                        time.sleep(1)
+                        st.rerun()
+                with col_a2:
+                    dec_reason = st.text_input("Decline Reason", key=f"dec_r_{sel_task_id}")
+                    if st.button("Decline", key=f"dec_{sel_task_id}"):
+                        if dec_reason:
+                            with SessionFactory() as db:
+                                ReviewService.decline_assignment(db, sel_task_id, curr_u, dec_reason)
+                            st.info("Assignment declined.")
+                            time.sleep(1)
+                            st.rerun()
+                with col_a3:
+                    coi_reason = st.text_input("COI Reason", key=f"coi_r_{sel_task_id}")
+                    if st.button("Declare Conflict", key=f"coi_{sel_task_id}"):
+                        if coi_reason:
+                            with SessionFactory() as db:
+                                ReviewService.declare_conflict(db, sel_task_id, curr_u, coi_reason)
+                            st.warning("Conflict of interest recorded.")
+                            time.sleep(1)
+                            st.rerun()
+
+            elif selected_task["assignment_state"] in ("ACCEPTED", "IN_PROGRESS"):
+                st.markdown("---")
+                st.markdown("### 📋 Evidence Package & Phase 6 AI Forensic Analysis")
+                with SessionFactory() as db:
+                    case_detail = ReviewService.get_case_detail_for_reviewer(db, selected_task["case_id"], curr_u)
+
+                st.markdown(f"**Submission Round:** #{case_detail['submission_round']}")
+                if case_detail.get("submission_notes"):
+                    st.info(f"NGO Notes: {case_detail['submission_notes']}")
+
+                # Display evidence files
+                for ev_item in case_detail["evidence_package"]:
+                    with st.expander(f"📄 {ev_item['original_filename']} (v{ev_item['version']})", expanded=True):
+                        st.caption(f"SHA-256 Hash: `{ev_item['file_hash']}`")
+                        vr = ev_item.get("verification_report")
+                        if vr:
+                            st.markdown(f"**AI Assessment:** `{vr['overall_assessment']}` | **Confidence:** `{vr['confidence_score']}` ({vr['calibration_status']})")
+                            st.markdown(f"*{vr['summary_notes']}*")
+                            for chk in vr.get("checks", []):
+                                st.markdown(f"- **{chk['check_type']}**: `{chk['status']}` — {chk['message']}")
+                        else:
+                            st.warning("⚠️ No AI verification report available for this file.")
+
+                # Decisions & Blind Review Notice
+                st.markdown("---")
+                st.markdown("### ⚖️ Independent Review Decision Form")
+                if case_detail.get("blind_review_active"):
+                    st.info("🔒 **Blind Review Active**: Reviewer 1's decision and comments are masked to ensure independent, unanchored evaluation.")
+
+                with st.form(f"form_decision_{sel_task_id}"):
+                    dec_val = st.radio("Your Independent Decision", ["APPROVE", "REQUEST_REVISION", "REJECT"], horizontal=True)
+                    dec_comments = st.text_area("Review Comments & Observations *", placeholder="Document physical progress observed, compliance with criteria, or required corrections.")
+                    dec_rev_data = st.text_input("Structured Revision Requirements (if REQUEST_REVISION)", placeholder="e.g. Higher resolution photo of well output pressure gauge")
+                    btn_submit_dec = st.form_submit_button("Submit Immutable Decision", type="primary", use_container_width=True)
+
+                    if btn_submit_dec:
+                        try:
+                            rev_data = {"required_actions": [dec_rev_data]} if dec_rev_data else None
+                            with SessionFactory() as db:
+                                ReviewService.submit_decision(
+                                    db=db,
+                                    task_id=sel_task_id,
+                                    reviewer=curr_u,
+                                    decision=ReviewDecision(dec_val),
+                                    comments=dec_comments,
+                                    structured_revision_data=rev_data
+                                )
+                            st.success("✅ Decision recorded and dual-key reconciled!")
+                            time.sleep(1)
+                            st.rerun()
+                        except Exception as ex:
+                            st.error(f"❌ Decision submission failed: {ex}")
+
+            elif selected_task["assignment_state"] == "DECIDED":
+                st.success("✅ You have submitted your immutable decision for this review task slot.")
+
+    with tab_disputes:
+        st.subheader("⚖️ Formal Milestone Appeals & Disputes")
+        with SessionFactory() as db:
+            from backend.app.db.models.reviews_impact import ReviewDispute
+            disputes = db.execute(select(ReviewDispute).order_by(ReviewDispute.created_at.desc())).scalars().all()
+
+        if not disputes:
+            st.info("No formal disputes or appeals have been raised.")
+        else:
+            for disp in disputes:
+                with st.expander(f"Dispute `{disp.id[:8]}` • Category: {disp.dispute_category} • Status: {disp.status}", expanded=False):
+                    st.markdown(f"**Milestone ID:** `{disp.milestone_id}` | **Organization ID:** `{disp.organization_id}`")
+                    st.markdown(f"**Dispute Reason:** {disp.dispute_reason}")
+                    if disp.resolution:
+                        st.success(f"**Resolution:** `{disp.resolution}` — {disp.resolution_explanation}")
+
+                    # Thread messages
+                    if disp.messages:
+                        st.markdown("##### 💬 Discussion Thread")
+                        for m in disp.messages:
+                            st.markdown(f"**{m.sender_role}**: {m.message}")
+                            st.caption(f"Time: {m.created_at}")
+
+                    # Add message form
+                    with st.form(f"msg_disp_{disp.id}"):
+                        msg_text = st.text_input("Add Statement / Response", key=f"inp_msg_{disp.id}")
+                        if st.form_submit_button("Send"):
+                            if msg_text:
+                                with SessionFactory() as db:
+                                    ReviewService.add_dispute_message(db, disp.id, curr_u, msg_text)
+                                st.success("Message recorded.")
+                                time.sleep(1)
+                                st.rerun()
+
+                    # Admin resolution
+                    if role == PlatformRole.PLATFORM_ADMIN.value and disp.status != DisputeStatus.RESOLVED.value:
+                        st.markdown("##### 🏛️ Adjudicate Dispute Resolution")
+                        with st.form(f"res_disp_{disp.id}"):
+                            res_choice = st.selectbox(
+                                "Resolution",
+                                [
+                                    "UPHOLD_ORIGINAL_DECISION",
+                                    "OVERTURN_ORIGINAL_DECISION",
+                                    "REQUEST_NEW_EVIDENCE",
+                                    "ORDER_RE_REVIEW",
+                                    "DISMISS_DISPUTE"
+                                ]
+                            )
+                            res_exp = st.text_area("Resolution Explanation *")
+                            if st.form_submit_button("Issue Binding Resolution", type="primary"):
+                                if res_exp:
+                                    try:
+                                        with SessionFactory() as db:
+                                            ReviewService.resolve_dispute(
+                                                db=db,
+                                                dispute_id=disp.id,
+                                                adjudicator=curr_u,
+                                                resolution=DisputeResolution(res_choice),
+                                                explanation=res_exp
+                                            )
+                                        st.success("✅ Dispute resolution issued!")
+                                        time.sleep(1)
+                                        st.rerun()
+                                    except Exception as ex:
+                                        st.error(f"Error: {ex}")
+
+    with tab_audit:
+        st.subheader("📜 Milestone Review Cryptographic Audit Trail")
+        with SessionFactory() as db:
+            from backend.app.db.models.projects import Milestone
+            ms_list = db.execute(select(Milestone)).scalars().all()
+
+        if ms_list:
+            sel_audit_ms_id = st.selectbox(
+                "Select Milestone to Inspect Audit Chain",
+                options=[m.id for m in ms_list],
+                format_func=lambda x: next(f"Milestone: {m.title} [{m.status}]" for m in ms_list if m.id == x)
+            )
+
+            with SessionFactory() as db:
+                audit_res = ReviewService.get_review_audit_trail(db, sel_audit_ms_id)
+
+            if audit_res["is_chain_intact"]:
+                st.success(f"🔒 **Cryptographic Hash Chain Valid**: All {audit_res['total_events']} review events cryptographically linked with unbroken SHA-256 continuity.")
+            else:
+                st.error("❌ **Audit Chain Integrity Failure**: Hash mismatch detected in historical records.")
+
+            if audit_res["events"]:
+                for ev in audit_res["events"]:
+                    st.markdown(f"- **{ev['event_type']}** (Actor: `{ev['actor_id'] or 'SYSTEM'}`) at `{ev['created_at']}`")
+                    st.caption(f"Hash: `{ev['current_hash']}`")
+                    if ev.get("details"):
+                        st.json(ev["details"])
+            else:
+                st.info("No review audit events recorded for this milestone yet.")
 
 
 # ============================================================================

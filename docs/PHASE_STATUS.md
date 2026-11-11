@@ -139,4 +139,24 @@
 | **6.12** | Streamlit UI Integration & Legacy Adapter | **COMPLETED** | Forensic indicators and diagnostic artifacts panel in `app_ui.py`; legacy `EnhancedAIVerifier` in `charity_tracker.py` wired to backend engine. |
 | **6.13** | Comprehensive Automated Testing (197 Tests Passing) | **COMPLETED** | All 197 tests passed in 136.77s with 0 failures and 0 errors across 61 test files (157 previous + 40 new Phase 6 tests). |
 
+---
+
+## Phase 7: Human Review & Decision Workflows (Reviewer Portal, Dual-Key Approval, Revision Requests, Dispute Resolution & Tamper-Evident Audit Trails)
+
+| Task ID | Task Description | Status | Verification Note |
+|:---:|:---|:---:|:---|
+| **7.1** | Pre-Phase 7 Audit & Foundation Verification | **COMPLETED** | Conducted full audit of Phase 6 implementation; verified all 197 tests passing with 0 failures; authored `docs/PRE_PHASE_7_VERIFICATION_REPORT.md`. |
+| **7.2** | Review Constants & State Machine Transitions | **COMPLETED** | Centralized `ReviewCaseStatus`, `ReviewAssignmentStatus`, `ReconciliationResult`, `DisputeStatus`, `DisputeCategory`, `DisputeResolution`, `ReviewAuditEventType` in `constants.py`. Added transitions in `state_machines.py`. |
+| **7.3** | Database Models & Alembic Migration 007 | **COMPLETED** | Created `ReviewCase`, `ReviewCaseEvidence`, `ReviewTask`, `ReviewDecisionRecord`, `ReviewDispute`, `ReviewDisputeMessage`, `ReviewAuditEvent` in `reviews_impact.py`. Migration `007_phase7_human_review_workflows.py` verified bidirectionally. |
+| **7.4** | Configuration & Production Dual-Key Lock | **COMPLETED** | Added review settings in `backend/app/core/config.py` and `.env.example`. Added pydantic validator strictly prohibiting disabling dual-key approval in production mode. |
+| **7.5** | Conflict-of-Interest (COI) & Workload Engine | **COMPLETED** | Programmatic verification of active reviewer status, org membership recusal, project creator recusal, submitter recusal, evidence uploader recusal, and 5-task open workload ceiling in `ReviewService`. |
+| **7.6** | Dual-Key Independent Approval & Blind Review | **COMPLETED** | Dual independent reviewer slots (Slot 1 and Slot 2); blind review masking prevents Reviewer 2 from seeing Reviewer 1's decision/comments until Reviewer 2 decides. |
+| **7.7** | Structured Revision Requests & Multi-Round Resubmissions | **COMPLETED** | Reviewers specify actionable requirements; NGO submits response and new evidence, creating Round N+1 review case while preserving Round 1 records intact. |
+| **7.8** | Formal Dispute Resolution & Appeal Governance | **COMPLETED** | NGOs appeal adverse decisions within `REVIEW_APPEAL_WINDOW_HOURS`; private threaded discussions; independent adjudicator assignment prohibiting original reviewers. |
+| **7.9** | Cryptographic Review Audit Trail | **COMPLETED** | Tamper-evident SHA-256 hash chaining via `compute_review_audit_hash`. Verification endpoint `/api/v1/reviews/audit/milestone/{id}/verify` mathematically checks chain continuity. |
+| **7.10** | REST API Routing & OpenAPI Documentation | **COMPLETED** | 16 REST endpoints mounted under `/api/v1/reviews/*` for cases, assignments, decisions, adjudications, revisions, disputes, and audit trails. |
+| **7.11** | Streamlit Reviewer Portal Integration | **COMPLETED** | Integrated tabbed Reviewer Queue in `app_ui.py` covering Organizations, Projects, Review Cases, Assigned Tasks, Formal Disputes, and Cryptographic Audit. |
+| **7.12** | Comprehensive Automated Testing (234 Tests Passing) | **COMPLETED** | Authored 6 new test files adding 37 tests. Full suite of 234 tests across 67 test files passing in 132.4s with 100% pass rate. |
+
+
 

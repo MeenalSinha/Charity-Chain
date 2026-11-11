@@ -62,3 +62,4 @@ CharityChain explicitly documents and serializes `calibration_status = "UNVALIDA
 1. **Non-Executable Findings**: AI findings are purely advisory and cannot trigger database state changes in `Donation`, `PaymentCapture`, or `Milestone.status`.
 2. **Reviewer Highlighting**: The UI presents flags, confidence scores, and diagnostic heatmaps to human reviewers with explicit recommendations for manual inspection.
 3. **Audit Trail**: Every verification result is cryptographically signed and chained into `evidence_audit_events`.
+

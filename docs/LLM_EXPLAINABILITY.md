@@ -52,3 +52,4 @@ Every explainability output includes a structured `limitations` block:
 - **COCO Vocabulary Scope**: Informs the user that the underlying YOLO model recognizes 80 COCO classes and cannot identify specific medical devices, educational textbooks, or water well pumps.
 - **Unvalidated Calibration**: Reiterates that confidence scores represent heuristic multi-indicator weights rather than calibrated probabilities.
 - **EXIF Stripping**: Clarifies that absence of GPS or timestamp data is common when photos are transferred through messaging apps (e.g. WhatsApp) that strip metadata.
+

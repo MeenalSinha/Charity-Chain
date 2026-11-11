@@ -10,7 +10,8 @@ from backend.app.core.constants import (
     OrganizationStatus, ProjectStatus, MilestoneStatus,
     EvidenceStatus, PaymentOrderStatus, PaymentAuthorizationStatus,
     PaymentCaptureStatus, PaymentRefundStatus, DisbursementStatus,
-    DonationStatus, PlatformRole, OrganizationRole, UserRole
+    DonationStatus, PlatformRole, OrganizationRole, UserRole,
+    ReviewCaseStatus, ReviewAssignmentStatus, DisputeStatus
 )
 from backend.app.core.exceptions import InvalidStateTransitionError, UnauthorizedTransitionError
 
@@ -43,13 +44,13 @@ MILESTONE_TRANSITIONS: Dict[MilestoneStatus, Set[MilestoneStatus]] = {
     MilestoneStatus.DRAFT: {MilestoneStatus.SUBMITTED, MilestoneStatus.CANCELLED},
     MilestoneStatus.SUBMITTED: {MilestoneStatus.UNDER_REVIEW, MilestoneStatus.REJECTED, MilestoneStatus.CANCELLED},
     MilestoneStatus.UNDER_REVIEW: {MilestoneStatus.APPROVED, MilestoneStatus.REJECTED, MilestoneStatus.REVISION_REQUIRED},
-    MilestoneStatus.REVISION_REQUIRED: {MilestoneStatus.SUBMITTED, MilestoneStatus.CANCELLED},
+    MilestoneStatus.REVISION_REQUIRED: {MilestoneStatus.SUBMITTED, MilestoneStatus.EVIDENCE_SUBMITTED, MilestoneStatus.CANCELLED},
     MilestoneStatus.APPROVED: {MilestoneStatus.ACTIVE, MilestoneStatus.CANCELLED},
     MilestoneStatus.ACTIVE: {MilestoneStatus.EVIDENCE_SUBMITTED, MilestoneStatus.CANCELLED},
     MilestoneStatus.EVIDENCE_SUBMITTED: {MilestoneStatus.VERIFICATION_PENDING},
     MilestoneStatus.VERIFICATION_PENDING: {MilestoneStatus.COMPLETED, MilestoneStatus.REJECTED, MilestoneStatus.REVISION_REQUIRED},
     MilestoneStatus.COMPLETED: set(),  # Terminal (funds disbursed / certs issued)
-    MilestoneStatus.REJECTED: {MilestoneStatus.REVISION_REQUIRED, MilestoneStatus.CANCELLED},
+    MilestoneStatus.REJECTED: {MilestoneStatus.REVISION_REQUIRED, MilestoneStatus.CANCELLED, MilestoneStatus.EVIDENCE_SUBMITTED, MilestoneStatus.VERIFICATION_PENDING},
     MilestoneStatus.CANCELLED: set(),  # Terminal state
 }
 
@@ -112,6 +113,42 @@ DISBURSEMENT_TRANSITIONS: Dict[DisbursementStatus, Set[DisbursementStatus]] = {
     DisbursementStatus.SUCCEEDED: set(),  # Terminal successful payout
     DisbursementStatus.FAILED: {DisbursementStatus.SCHEDULED},  # Can be re-scheduled
     DisbursementStatus.CANCELLED: set(),
+}
+
+REVIEW_CASE_TRANSITIONS: Dict[ReviewCaseStatus, Set[ReviewCaseStatus]] = {
+    ReviewCaseStatus.SUBMITTED: {ReviewCaseStatus.ASSIGNED, ReviewCaseStatus.CANCELLED},
+    ReviewCaseStatus.ASSIGNED: {ReviewCaseStatus.IN_REVIEW, ReviewCaseStatus.AWAITING_SECOND_REVIEW, ReviewCaseStatus.CANCELLED},
+    ReviewCaseStatus.IN_REVIEW: {ReviewCaseStatus.AWAITING_SECOND_REVIEW, ReviewCaseStatus.REVISION_REQUIRED, ReviewCaseStatus.APPROVED, ReviewCaseStatus.REJECTED, ReviewCaseStatus.ESCALATED, ReviewCaseStatus.CANCELLED},
+    ReviewCaseStatus.AWAITING_SECOND_REVIEW: {ReviewCaseStatus.APPROVED, ReviewCaseStatus.REVISION_REQUIRED, ReviewCaseStatus.REJECTED, ReviewCaseStatus.ESCALATED, ReviewCaseStatus.CANCELLED},
+    ReviewCaseStatus.ESCALATED: {ReviewCaseStatus.APPROVED, ReviewCaseStatus.REVISION_REQUIRED, ReviewCaseStatus.REJECTED, ReviewCaseStatus.CLOSED},
+    ReviewCaseStatus.REVISION_REQUIRED: {ReviewCaseStatus.SUBMITTED, ReviewCaseStatus.ASSIGNED, ReviewCaseStatus.CLOSED},
+    ReviewCaseStatus.APPROVED: {ReviewCaseStatus.CLOSED},
+    ReviewCaseStatus.REJECTED: {ReviewCaseStatus.DISPUTED, ReviewCaseStatus.CLOSED},
+    ReviewCaseStatus.DISPUTED: {ReviewCaseStatus.RESOLVED, ReviewCaseStatus.ESCALATED, ReviewCaseStatus.CLOSED},
+    ReviewCaseStatus.RESOLVED: {ReviewCaseStatus.SUBMITTED, ReviewCaseStatus.CLOSED},
+    ReviewCaseStatus.CLOSED: set(),
+    ReviewCaseStatus.CANCELLED: set(),
+}
+
+REVIEW_ASSIGNMENT_TRANSITIONS: Dict[ReviewAssignmentStatus, Set[ReviewAssignmentStatus]] = {
+    ReviewAssignmentStatus.ASSIGNED: {ReviewAssignmentStatus.ACCEPTED, ReviewAssignmentStatus.DECLINED, ReviewAssignmentStatus.IN_PROGRESS, ReviewAssignmentStatus.REASSIGNED, ReviewAssignmentStatus.EXPIRED, ReviewAssignmentStatus.CANCELLED},
+    ReviewAssignmentStatus.ACCEPTED: {ReviewAssignmentStatus.IN_PROGRESS, ReviewAssignmentStatus.DECIDED, ReviewAssignmentStatus.DECLINED, ReviewAssignmentStatus.EXPIRED, ReviewAssignmentStatus.CANCELLED},
+    ReviewAssignmentStatus.IN_PROGRESS: {ReviewAssignmentStatus.DECIDED, ReviewAssignmentStatus.DECLINED, ReviewAssignmentStatus.EXPIRED, ReviewAssignmentStatus.CANCELLED},
+    ReviewAssignmentStatus.DECIDED: set(),
+    ReviewAssignmentStatus.DECLINED: {ReviewAssignmentStatus.REASSIGNED},
+    ReviewAssignmentStatus.REASSIGNED: set(),
+    ReviewAssignmentStatus.EXPIRED: {ReviewAssignmentStatus.REASSIGNED},
+    ReviewAssignmentStatus.CANCELLED: set(),
+}
+
+DISPUTE_TRANSITIONS: Dict[DisputeStatus, Set[DisputeStatus]] = {
+    DisputeStatus.OPEN: {DisputeStatus.UNDER_REVIEW, DisputeStatus.WITHDRAWN, DisputeStatus.CLOSED},
+    DisputeStatus.UNDER_REVIEW: {DisputeStatus.AWAITING_INFORMATION, DisputeStatus.ESCALATED, DisputeStatus.RESOLVED, DisputeStatus.WITHDRAWN},
+    DisputeStatus.AWAITING_INFORMATION: {DisputeStatus.UNDER_REVIEW, DisputeStatus.RESOLVED, DisputeStatus.WITHDRAWN},
+    DisputeStatus.ESCALATED: {DisputeStatus.RESOLVED, DisputeStatus.CLOSED},
+    DisputeStatus.RESOLVED: {DisputeStatus.CLOSED},
+    DisputeStatus.WITHDRAWN: {DisputeStatus.CLOSED},
+    DisputeStatus.CLOSED: set(),
 }
 
 
@@ -303,6 +340,45 @@ class StateMachineValidator:
         if target not in allowed:
             raise InvalidStateTransitionError(
                 f"Invalid PaymentRefund transition from {current.value} to {target.value}. Allowed: {[s.value for s in allowed]}"
+            )
+        return True
+
+    @staticmethod
+    def validate_review_case_transition(
+        current: ReviewCaseStatus,
+        target: ReviewCaseStatus
+    ) -> bool:
+        """Validates milestone human review case state transition."""
+        allowed = REVIEW_CASE_TRANSITIONS.get(current, set())
+        if target not in allowed:
+            raise InvalidStateTransitionError(
+                f"Invalid ReviewCase transition from {current.value} to {target.value}. Allowed: {[s.value for s in allowed]}"
+            )
+        return True
+
+    @staticmethod
+    def validate_review_assignment_transition(
+        current: ReviewAssignmentStatus,
+        target: ReviewAssignmentStatus
+    ) -> bool:
+        """Validates reviewer task assignment state transition."""
+        allowed = REVIEW_ASSIGNMENT_TRANSITIONS.get(current, set())
+        if target not in allowed:
+            raise InvalidStateTransitionError(
+                f"Invalid ReviewAssignment transition from {current.value} to {target.value}. Allowed: {[s.value for s in allowed]}"
+            )
+        return True
+
+    @staticmethod
+    def validate_dispute_transition(
+        current: DisputeStatus,
+        target: DisputeStatus
+    ) -> bool:
+        """Validates review dispute/appeal state transition."""
+        allowed = DISPUTE_TRANSITIONS.get(current, set())
+        if target not in allowed:
+            raise InvalidStateTransitionError(
+                f"Invalid Dispute transition from {current.value} to {target.value}. Allowed: {[s.value for s in allowed]}"
             )
         return True
 

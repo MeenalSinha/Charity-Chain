@@ -118,3 +118,4 @@ The overall verification flow is depicted below:
    - `PLATFORM_ADMIN` & `REVIEWER`: Full access to submit and review verification reports.
    - `ORGANIZATION_OWNER`, `ADMIN`, `MEMBER`: Access limited strictly to their own organization's evidence.
    - `DONOR` & Anonymous: Denied access to internal forensic diagnostic artifacts and unapproved evidence.
+

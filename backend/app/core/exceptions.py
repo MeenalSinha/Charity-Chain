@@ -146,6 +146,7 @@ class StorageException(CharityChainException):
 AuthenticationException = AuthenticationError
 ForbiddenException = PermissionDeniedError
 NotFoundException = EntityNotFoundError
+BadRequestException = ValidationException
 InvalidStateTransitionException = InvalidStateTransitionError
 UnauthorizedTransitionException = UnauthorizedTransitionError
 InternalServerException = CharityChainException

@@ -198,3 +198,21 @@
   - Wired legacy `EnhancedAIVerifier` in `charity_tracker.py` to delegate directly to modular backend AI engine.
   - Added 40 new automated tests across 9 suites. Total test suite: 197 / 197 passed (100%) in 136.77s.
 
+## Phase 7: Human Review & Decision Workflows (Reviewer Portal, Dual-Key Approval, Revision Requests, Dispute Resolution & Tamper-Evident Audit Trails)
+- **Status**: COMPLETED
+- **Key Changes**:
+  - Conducted pre-Phase 7 audit verifying all 197 prior tests pass; authored `docs/PRE_PHASE_7_VERIFICATION_REPORT.md`.
+  - Created 7 database models in `backend/app/db/models/reviews_impact.py` (`ReviewCase`, `ReviewCaseEvidence`, `ReviewTask`, `ReviewDecisionRecord`, `ReviewDispute`, `ReviewDisputeMessage`, `ReviewAuditEvent`).
+  - Created and verified reversible Alembic migration `007_phase7_human_review_workflows.py` (`upgrade head` -> `downgrade -1` -> `upgrade head`).
+  - Centralized review enums and constants in `backend/app/core/constants.py` and state machine transitions in `backend/app/core/state_machines.py`.
+  - Added review configuration in `backend/app/core/config.py` and `.env.example` with strict production validation prohibiting disabling dual-key approval.
+  - Implemented programmatic conflict-of-interest engine in `ReviewService` enforcing organization membership recusal, project creator recusal, submitter recusal, evidence uploader recusal, and 5-task workload ceilings.
+  - Implemented dual-key independent decision reconciliation (Slot 1 and Slot 2) with blind review masking protecting Reviewer 2 from cognitive anchoring.
+  - Implemented multi-round revision and resubmission workflow generating Round N+1 review cases with updated snapshot digests while preserving prior rounds and decisions intact.
+  - Implemented formal dispute and appeal workflow with appeal window deadlines, threaded communication, and adjudicator independence checks.
+  - Implemented tamper-evident SHA-256 hash chaining via `compute_review_audit_hash` and chain verification in `ReviewService.get_review_audit_trail`.
+  - Added 16 REST endpoints under `/api/v1/reviews/*` in `backend/app/api/v1/reviews.py` mounted in `backend/app/api/v1/router.py`.
+  - Integrated dedicated tabbed Reviewer Queue in Streamlit UI `app_ui.py` covering Organizations, Projects, Review Cases, Assigned Tasks, Formal Disputes, and Cryptographic Audit.
+  - Added 37 automated tests across 6 test suites. Total test suite: 234 / 234 passed (100%) in 132.4s.
+
+

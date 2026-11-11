@@ -83,3 +83,4 @@ $$\text{SSIM}(x, y) = \frac{(2\mu_x\mu_y + C_1)(2\sigma_{xy} + C_2)}{(\mu_x^2 + 
 To assist human reviewers in Phase 7, the system automatically generates visual forensic artifacts:
 - **ELA Amplified Heatmap**: PNG showing high-contrast compression discrepancies.
 - **Side-by-Side Progression Composite**: Dual-panel PNG showing baseline vs. current photograph with superimposed pHash distance and SSIM metrics.
+

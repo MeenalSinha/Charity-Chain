@@ -61,3 +61,4 @@ PROJECT_CATEGORY_RELEVANCE_MAP: Dict[str, Set[str]] = {
 - **CPU**: Minimal 2 cores; YOLOv8n inference completes in ~120-250ms on standard x86_64 CPUs.
 - **Memory**: 512MB RAM overhead for PyTorch and YOLO model caching.
 - **Storage**: ~6.2MB for `yolov8n.pt` model weights. Diagnostic artifacts are stored as PNGs in `<storage_root>/diagnostics/`.
+

@@ -86,3 +86,4 @@ alembic downgrade -1
 alembic upgrade head
 ```
 All schema transitions execute idempotently without data loss or residual dangling indexes.
+

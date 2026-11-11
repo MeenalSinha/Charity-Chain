@@ -3,7 +3,7 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.40+-FF4B4B.svg)](https://streamlit.io/)
-[![Tests](https://img.shields.io/badge/tests-197%2F197%20passing-brightgreen.svg)](docs/PHASE_6_TEST_REPORT.md)
+[![Tests](https://img.shields.io/badge/tests-234%2F234%20passing-brightgreen.svg)](docs/PHASE_7_TEST_REPORT.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 > **Give with Evidence. Release with Confidence.**
@@ -212,7 +212,20 @@ For in-depth architectural and domain specifications, refer to the documents in 
 - [External Integration Design](docs/INTEGRATION_DESIGN.md)
 - [Phase 0 Completion Report](docs/PHASE_0_COMPLETION_REPORT.md)
 - [Phase 1 Completion Report](docs/PHASE_1_COMPLETION_REPORT.md)
-- [Comprehensive Test Report](docs/TEST_REPORT.md)
+- [Phase 2 Completion Report](docs/PHASE_2_COMPLETION_REPORT.md)
+- [Phase 3 Completion Report](docs/PHASE_3_COMPLETION_REPORT.md)
+- [Phase 4 Completion Report](docs/PHASE_4_COMPLETION_REPORT.md)
+- [Phase 5 Completion Report](docs/PHASE_5_COMPLETION_REPORT.md)
+- [Phase 6 Completion Report](docs/PHASE_6_COMPLETION_REPORT.md)
+- [Phase 7 Completion Report](docs/PHASE_7_COMPLETION_REPORT.md)
+- [Phase 7 Test Report (234 Tests)](docs/PHASE_7_TEST_REPORT.md)
+- [Human Review Workflows Specification](docs/REVIEW_WORKFLOW.md)
+- [Reviewer Governance & COI Rules](docs/REVIEWER_GOVERNANCE.md)
+- [Dual-Key Approval Architecture](docs/DUAL_KEY_APPROVAL.md)
+- [Revision & Resubmission Workflow](docs/REVISION_AND_RESUBMISSION.md)
+- [Formal Dispute Resolution](docs/DISPUTE_RESOLUTION.md)
+- [Review Audit Trail](docs/REVIEW_AUDIT_TRAIL.md)
+- [Review API Documentation](docs/REVIEW_API.md)
 
 ---
 

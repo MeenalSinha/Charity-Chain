@@ -928,5 +928,142 @@ class VerificationHistoryResponse(BaseModel):
     reports: List[VerificationReportResponse]
 
 
+# ============================================================================
+# PHASE 7 HUMAN REVIEW & DECISION WORKFLOW SCHEMAS
+# ============================================================================
+
+from backend.app.core.constants import (
+    ReviewCaseStatus,
+    ReviewAssignmentStatus,
+    ReviewDecision,
+    ReconciliationResult,
+    DisputeStatus,
+    DisputeCategory,
+    DisputeResolution,
+    ReviewAuditEventType
+)
+
+
+class SubmitMilestoneReviewRequest(BaseModel):
+    """Payload for an NGO submitting a milestone evidence package for human review."""
+    submission_notes: Optional[str] = Field(default=None, max_length=1000)
+
+
+class AssignReviewersRequest(BaseModel):
+    """Payload for administrator assigning dual independent reviewers to a case."""
+    reviewer_1_id: str = Field(..., description="UUID of primary reviewer (Slot 1)")
+    reviewer_2_id: Optional[str] = Field(default=None, description="UUID of second reviewer (Slot 2, required for dual-key)")
+
+
+class TaskActionReasonRequest(BaseModel):
+    """Payload for declining a review assignment or declaring a conflict of interest."""
+    reason: str = Field(..., min_length=5, max_length=500, description="Mandatory detailed reason")
+
+
+class SubmitReviewDecisionRequest(BaseModel):
+    """Payload for a reviewer submitting an independent review decision."""
+    decision: ReviewDecision = Field(..., description="APPROVE, REJECT, or REQUEST_REVISION")
+    comments: str = Field(..., min_length=10, max_length=2000, description="Detailed review observations and rationale")
+    structured_revision_data: Optional[Dict[str, Any]] = Field(default=None, description="Actionable revision requirements if requested")
+    rejection_reason_category: Optional[str] = Field(default=None, max_length=100, description="Category of rejection reason")
+
+
+class AdjudicateCaseRequest(BaseModel):
+    """Payload for administrator or senior adjudicator breaking deadlock on an escalated case."""
+    decision: ReviewDecision = Field(..., description="Final binding decision: APPROVE, REJECT, or REQUEST_REVISION")
+    comments: str = Field(..., min_length=15, max_length=2000, description="Thorough adjudication rationale resolving the disagreement")
+
+
+class SubmitRevisionResponseRequest(BaseModel):
+    """Payload for NGO responding to a revision request with updated evidence."""
+    written_response: str = Field(..., min_length=10, max_length=2000, description="Written explanation addressing revision comments")
+    new_evidence_file_ids: List[str] = Field(..., min_length=1, description="List of replacement/supporting evidence file UUIDs")
+
+
+class RaiseDisputeRequest(BaseModel):
+    """Payload for NGO filing a formal appeal against an adverse review decision."""
+    dispute_category: DisputeCategory = Field(..., description="Category of dispute")
+    dispute_reason: str = Field(..., min_length=15, max_length=2000, description="Substantiated dispute statement")
+    supporting_evidence: Optional[Dict[str, Any]] = Field(default=None, description="Optional supporting metadata or citations")
+
+
+class AddDisputeMessageRequest(BaseModel):
+    """Payload for adding a message to a dispute communication thread."""
+    message: str = Field(..., min_length=3, max_length=2000, description="Message text")
+    attachments: Optional[Dict[str, Any]] = Field(default=None)
+
+
+class ResolveDisputeRequest(BaseModel):
+    """Payload for adjudicator issuing a binding dispute resolution."""
+    resolution: DisputeResolution = Field(..., description="Outcome: UPHOLD_ORIGINAL_DECISION, OVERTURN_ORIGINAL_DECISION, ORDER_RE_REVIEW, etc.")
+    explanation: str = Field(..., min_length=15, max_length=2000, description="Detailed written explanation")
+
+
+class ReviewCaseResponse(BaseModel):
+    """Response payload for a milestone human review case."""
+    id: str
+    milestone_id: str
+    project_id: str
+    organization_id: str
+    submission_round: int
+    status: str
+    final_decision: Optional[str] = None
+    reconciliation_result: Optional[str] = None
+    submission_notes: Optional[str] = None
+    snapshot_digest: str
+    review_policy_version: str
+    revision_deadline: Optional[datetime] = None
+    appeal_deadline: Optional[datetime] = None
+    created_at: datetime
+
+
+class ReviewTaskResponse(BaseModel):
+    """Response payload for an assigned reviewer task slot."""
+    id: str
+    review_case_id: Optional[str] = None
+    milestone_id: str
+    assigned_reviewer_id: Optional[str] = None
+    reviewer_slot: int
+    status: str
+    assignment_state: str
+    assigned_at: datetime
+    due_at: Optional[datetime] = None
+    decided_at: Optional[datetime] = None
+
+
+class ReviewDecisionResponse(BaseModel):
+    """Response payload for an immutable review decision record."""
+    id: str
+    review_case_id: Optional[str] = None
+    task_id: str
+    reviewer_id: str
+    decision: str
+    comments: str
+    submission_round: int
+    decided_at: datetime
+
+
+class ReviewDisputeResponse(BaseModel):
+    """Response payload for a formal review dispute/appeal."""
+    id: str
+    review_case_id: str
+    milestone_id: str
+    status: str
+    dispute_category: str
+    dispute_reason: str
+    resolution: Optional[str] = None
+    resolution_explanation: Optional[str] = None
+    resolved_at: Optional[datetime] = None
+    created_at: datetime
+
+
+class ReviewAuditTrailResponse(BaseModel):
+    """Response payload for a cryptographic review audit trail."""
+    milestone_id: str
+    total_events: int
+    is_chain_intact: bool
+    events: List[Dict[str, Any]]
+
+
 
 

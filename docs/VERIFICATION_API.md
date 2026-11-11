@@ -123,3 +123,4 @@ The AI Verification API provides endpoints for triggering verification jobs, mon
 Streams the binary image (`image/png` or `image/jpeg`) with cache control headers.
 Path traversal attempts (`../`) are detected and rejected with `400 Bad Request`.
 Donors and unauthenticated clients receive `403 Forbidden`.
+

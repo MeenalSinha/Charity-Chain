@@ -64,4 +64,19 @@ This document maintains an accurate, truthful record of functionality that is cu
   - Automated escrow fund disbursement upon milestone verification is deferred to Phase 8.
   - Complete Next.js frontend migration is scheduled for Phase 12.
 
+## 7. Human Review & Decision Workflows (Phase 7 Completed)
+- **Current Status**:
+  - Full human review lifecycle implemented with dual-key approval requiring two independent reviewers (Slot 1 and Slot 2).
+  - Programmatic conflict-of-interest engine rejects assignments violating organization membership, project creation, case submission, evidence uploading, or cross-slot independence.
+  - Workload ceiling strictly enforced at 5 active open tasks per reviewer.
+  - Blind review masking protects Reviewer 2 from cognitive anchoring by hiding Reviewer 1's decision/comments until Reviewer 2 submits their independent decision.
+  - Multi-round structured revision workflow creates Round N+1 review cases with updated snapshot digests while preserving prior rounds intact.
+  - Formal dispute resolution mechanism enables appeals within a configurable window with threaded discussions and independent senior adjudicator assignment.
+  - Cryptographic tamper-evident SHA-256 audit ledger with automated mathematical verification (`is_chain_intact`).
+- **Boundaries Preserved**:
+  - Milestone completion does **NOT** trigger financial disbursements, PayPal payouts, or financial ledger entries. Fund release remains strictly deferred to Phase 8.
+  - Public Proof-of-Impact certificates and NFT generation remain strictly deferred to Phase 9.
+  - Direct external transactional email dispatch and external webhook callbacks remain strictly deferred to Phase 10.
+
+
 
