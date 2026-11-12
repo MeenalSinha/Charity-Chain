@@ -232,5 +232,23 @@
   - Enhanced Streamlit presentation layer in `app_ui.py` with `page_financial_operations()` featuring 5 operational workspaces: Maker-Checker Queue, Payout Batches, General Ledger & Trial Balance, Reconciliation, and Recipient Verification.
   - Added 29 new automated tests across 13 test files covering unit, integration, security, and functional flows. Total test suite: **263 / 263 passed (100%)** in 128.45s with 0 failures and 0 errors.
 
+## Phase 9: Proof-of-Impact Ledger & Cryptographically Verifiable Certificates (Digital Impact Attestations, Ed25519 Signatures, Public Verification, RFC 7517 JWKS & QR-Based Certificates)
+- **Status**: COMPLETED
+- **Key Changes**:
+  - Conducted Pre-Phase 9 verification gate confirming all 263 prior tests pass; audited financial escrow and disbursement prerequisites; authored `docs/PRE_PHASE_9_VERIFICATION_REPORT.md`.
+  - Implemented RFC 8785 JSON Canonicalization Scheme in `backend/app/core/canonical_json.py` guaranteeing deterministic serialization, UTF-16 key sorting, and zero floating-point ambiguity.
+  - Implemented `KeyManagementService` and `SigningService` supporting asymmetric Ed25519 digital signatures, key generation, state lifecycle management (`PROVISIONED`, `ACTIVE`, `RETIRED`, `COMPROMISED`), and RFC 7517 JWKS discovery.
+  - Designed and implemented append-only Impact Event Ledger (`backend/app/models/impact_ledger.py` and `backend/app/services/impact_ledger_service.py`) supporting entity streams (`MILESTONE`, `PROJECT`, `ORGANIZATION`, `GLOBAL`), deterministic hash chaining ($H_i = \text{SHA256}(H_{i-1} \parallel E_i)$), monotonic sequence allocation, foreign event deduplication, and signed periodic checkpoints.
+  - Modernized certificate models in `backend/app/models/certificate.py` with 17 added columns, status events, and issuer key registry. Implemented and verified Alembic migration `009_phase9_impact_ledger_and_certificates.py`.
+  - Implemented 9-gate `CertificateEligibilityService` enforcing milestone completion, dual-key human review approval, active verified NGO standing, confirmed payment/disbursement, zero refunds/chargebacks, positive amount, and duplicate certificate prevention.
+  - Implemented `CertificateRenderingService` using ReportLab to generate landscape A4 PDF certificates with official guilloche borders, tabular impact metrics, and high-contrast verification QR codes.
+  - Implemented `PublicVerificationService` providing unauthenticated verification endpoints (`GET /api/v1/public/certificates/{id}`), raw cryptographic proof envelopes (`.../proof`), verifiable PDF streaming (`.../download`), and standard JWKS discovery (`/.well-known/jwks.json`).
+  - Enforced Privacy by Design (GDPR Art. 25): default anonymity (`"Anonymous Contributor"`), consent-driven attribution, and absolute suppression of donor email addresses and payment instrument references.
+  - Added administrative certificate lifecycle endpoints (`/suspend`, `/revoke`, `/supersede`) with append-only event logging.
+  - Extended `backend/app/cli.py` with `generate-issuer-key` and `verify-certificate` CLI commands for air-gapped cryptographic validation.
+  - Integrated Streamlit UI workspace in `app_ui.py` supporting public QR scan verification, certificate issuance, PDF downloads, and ledger chain audits.
+  - Authored 12 new test suites adding 43 tests across unit, integration, security, and functional layers. Total test suite: **306 / 306 passed (100%)** in 107.45s with 0 failures and 0 errors.
+
+
 
 

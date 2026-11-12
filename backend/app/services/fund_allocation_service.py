@@ -185,3 +185,4 @@ class FundAllocationService:
             "funding_percentage": round(funding_percentage, 2),
             "milestones": milestone_summaries
         }
+

@@ -17,6 +17,9 @@ Unlike traditional platforms that rely on single-entry mutable balances or super
 4. **Zero-Float Minor Unit Arithmetic:** All monetary values are processed and stored as integer minor units (cents), eliminating floating-point rounding errors.
 5. **Real-Money Provider Integration:** Native outbound batch payouts via PayPal Payouts REST API v1 with idempotency deduplication (`sender_batch_id`) and automated settlement reconciliation.
 
+> [!NOTE]
+> **Legal & Custodial Disclosure**: Internal milestone allocations and ledger liability accounts represent internal accounting commitments. They do not constitute legally chartered banking escrow trusts or bankruptcy-remote custodial holdings. Funds are held in platform payment accounts pending milestone approval, and disbursement occurs only upon successful gateway provider payout settlement.
+
 ---
 
 ## 2. High-Level Financial Domain Model
@@ -97,3 +100,4 @@ Unlike traditional platforms that rely on single-entry mutable balances or super
 - Daily or on-demand automated reconciliation jobs matching local records with external provider settlement files.
 - Discrepancy taxonomy: `AMOUNT_MISMATCH`, `STATUS_MISMATCH`, `MISSING_IN_LOCAL`, `MISSING_IN_GATEWAY`, `FEE_MISMATCH`.
 - Documented manual resolution workflow for audited exceptions.
+

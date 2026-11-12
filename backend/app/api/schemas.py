@@ -1203,6 +1203,130 @@ class DiscrepancyResolvePayload(BaseModel):
     notes: str
 
 
+# Phase 9: Proof-of-Impact Ledger & Certificates Schemas
+
+class EvaluateCertificateEligibilityRequest(BaseModel):
+    donation_id: str
+    certificate_type: Optional[str] = "CONTRIBUTION_IMPACT"
+    include_disbursement_claim: Optional[bool] = False
+
+
+class CertificateEligibilityResponseSchema(BaseModel):
+    is_eligible: bool
+    certificate_type: str
+    reasons: List[str]
+    explanation: str
+    donation_id: str
+    milestone_id: str
+    project_id: str
+    organization_id: str
+    review_case_id: Optional[str] = None
+    qualifying_amount_cents: int = 0
+    currency: str = "USD"
+    snapshot_digest: Optional[str] = None
+    disbursement_id: Optional[str] = None
+    policy_version: str = "v9.0.0"
+    evaluation_timestamp: str
+
+
+class IssueCertificateRequest(BaseModel):
+    donation_id: str
+    public_attribution: bool = False
+    public_display_name: Optional[str] = None
+    include_disbursement_claim: bool = False
+
+
+class CertificateStatusUpdateRequest(BaseModel):
+    reason_code: str
+    reason_description: Optional[str] = None
+
+
+class CertificateSupersedeRequest(BaseModel):
+    new_certificate_id: str
+    reason_code: Optional[str] = "SUPERSEDED_BY_REVISION"
+    reason_description: Optional[str] = None
+
+
+class ImpactCertificateResponseSchema(BaseModel):
+    id: str
+    donation_id: str
+    milestone_id: str
+    project_id: Optional[str] = None
+    organization_id: Optional[str] = None
+    certificate_number: str
+    verification_id: str
+    certificate_type: str
+    recipient_name: str
+    public_attribution: bool
+    public_display_name: Optional[str] = None
+    status: str
+    payload_hash: str
+    signature_algorithm: str
+    signing_key_id: str
+    issuer_id: str
+    qr_code_url: Optional[str] = None
+    pdf_storage_key: Optional[str] = None
+    pdf_hash: Optional[str] = None
+    created_at: datetime
+
+
+class PublicCertificateVerificationResponse(BaseModel):
+    verification_outcome: str
+    is_signature_valid: bool
+    is_payload_intact: bool
+    certificate_status: str
+    certificate_number: Optional[str] = None
+    verification_id: Optional[str] = None
+    certificate_type: Optional[str] = None
+    schema_version: Optional[str] = None
+    issuer: Optional[Dict[str, Any]] = None
+    issued_at: Optional[str] = None
+    donor: Optional[Dict[str, Any]] = None
+    contribution: Optional[Dict[str, Any]] = None
+    project: Optional[Dict[str, Any]] = None
+    milestone: Optional[Dict[str, Any]] = None
+    organization: Optional[Dict[str, Any]] = None
+    verification_summary: Optional[Dict[str, Any]] = None
+    disbursement_attestation: Optional[Dict[str, Any]] = None
+    cryptographic_proof: Optional[Dict[str, Any]] = None
+    revocation: Optional[Dict[str, Any]] = None
+    verification_timestamp: str
+
+
+class ImpactLedgerEventResponseSchema(BaseModel):
+    id: str
+    stream_id: str
+    sequence_number: int
+    event_type: str
+    source_event_type: str
+    source_event_id: str
+    payload_hash: str
+    previous_event_hash: str
+    current_event_hash: str
+    timestamp: datetime
+
+
+class ImpactLedgerVerificationReport(BaseModel):
+    stream_id: str
+    is_valid: bool
+    status: str
+    total_events: int
+    head_hash: Optional[str] = None
+    errors: List[str] = []
+
+
+class ImpactLedgerCheckpointResponse(BaseModel):
+    id: str
+    stream_id: str
+    sequence_number: int
+    head_hash: str
+    signing_key_id: str
+    signature_algorithm: str
+    signature: str
+    created_at: datetime
+
+
+
 
 
 

@@ -92,3 +92,4 @@ async def receive_paypal_payout_webhook(
         db.commit()
         logger.error(f"Error processing payout webhook event {event_id}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Payout webhook processing failed: {str(exc)}")
+

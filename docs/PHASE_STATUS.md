@@ -177,6 +177,26 @@
 | **8.11** | Streamlit Financial Operations Dashboard | **COMPLETED** | Added `page_financial_operations()` in `app_ui.py` providing tabs for Maker-Checker Approval Queue, Outbound Payout Batches, General Ledger & Trial Balance, Reconciliation, and Recipient Verification. |
 | **8.12** | Comprehensive Automated Testing (263 Tests Passing) | **COMPLETED** | 263 tests passing across 80 test files in 128.45s with 100% pass rate (234 legacy + 29 new Phase 8 tests) with 0 failures and 0 errors. |
 
+---
+
+## Phase 9: Proof-of-Impact Ledger & Cryptographically Verifiable Certificates (Digital Impact Attestations, Ed25519 Signatures, Public Verification, RFC 7517 JWKS & QR-Based Certificates)
+
+| Task ID | Task Description | Status | Verification Note |
+|:---:|:---|:---:|:---|
+| **9.1** | Pre-Phase 9 Audit & Verification Gate | **COMPLETED** | Verified all 263 existing tests passed; audited financial escrow and disbursement prerequisites; documented findings in `docs/PRE_PHASE_9_VERIFICATION_REPORT.md`. |
+| **9.2** | RFC 8785 JSON Canonicalization Scheme | **COMPLETED** | Implemented deterministic canonical JSON formatting (`canonical_json.py`) enforcing UTF-16 key sorting, zero floating-point ambiguity, and UTF-8 byte serialization. |
+| **9.3** | Asymmetric Ed25519 Cryptographic Keypair Architecture | **COMPLETED** | Implemented `KeyManagementService` and `SigningService` supporting Ed25519 asymmetric signatures, key provisioning, key retirement, and RFC 7517 JWKS discovery. |
+| **9.4** | Append-Only Cryptographic Impact Event Ledger | **COMPLETED** | Implemented `ImpactLedgerStream`, `ImpactLedgerEvent`, and `ImpactLedgerCheckpoint` models with monotonic sequence allocation, deterministic hash chaining ($H_i = \text{SHA256}(H_{i-1} \parallel E_i)$), and signed checkpoints. |
+| **9.5** | Modernized Certificate Data Models & Migration 009 | **COMPLETED** | Altered `impact_certificates` with 17 added fields, created `certificate_status_events`, `issuer_signing_keys`, `impact_ledger_streams`, `impact_ledger_events`, `impact_ledger_checkpoints` via Alembic migration `009`. |
+| **9.6** | 9-Gate Certificate Eligibility Engine | **COMPLETED** | Implemented `CertificateEligibilityService` enforcing completed milestone status, dual-key human approval, verified NGO status, funding verification, zero refunds/chargebacks, non-negative amounts, and duplicate prevention. |
+| **9.7** | Landscape A4 PDF & QR Code Rendering Service | **COMPLETED** | Implemented `CertificateRenderingService` using ReportLab to render print-ready landscape A4 PDF certificates with official guilloche borders, tabular impact metrics, and high-contrast verification QR codes. |
+| **9.8** | Public Verification Service & Privacy by Design | **COMPLETED** | Implemented `PublicVerificationService` with unauthenticated verification, raw cryptographic proof envelope, default donor anonymity (`"Anonymous Contributor"`), and strict suppression of donor emails and payment IDs. |
+| **9.9** | REST API Routing & Root JWKS Discovery | **COMPLETED** | Mounted public verification endpoints under `/api/v1/public/certificates/*`, impact ledger endpoints under `/api/v1/impact-ledger/*`, and root JWKS discovery at `GET /.well-known/jwks.json`. |
+| **9.10** | Issuer CLI Tooling & Offline Verification | **COMPLETED** | Added `generate-issuer-key` and `verify-certificate` commands to `backend/app/cli.py` enabling offline air-gapped cryptographic validation. |
+| **9.11** | Streamlit Multi-Workspace UI Integration | **COMPLETED** | Added interactive Impact Certificates & Ledger workspace to `app_ui.py` supporting public QR scan landing, certificate issuance, PDF downloads, and ledger chain integrity audits. |
+| **9.12** | Comprehensive Automated Testing (306 Tests Passing) | **COMPLETED** | Authored 12 new test files adding 43 tests (unit, integration, security, functional). All 306 tests passing in 107.45s across 92 test files with 100% pass rate. |
+
+
 
 
 

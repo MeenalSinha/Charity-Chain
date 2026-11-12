@@ -82,3 +82,4 @@ def test_automated_reconciliation_and_discrepancy_detection(db_session):
 
     assert resolved.reconciliation_status == ReconciliationStatus.MANUALLY_RESOLVED
     assert resolved.discrepancy_resolution == DiscrepancyResolution.MANUALLY_RECONCILED
+

@@ -155,3 +155,4 @@ def test_independent_checker_approval_succeeds(db_session, maker_checker_setup):
     assert approved.status == DisbursementStatus.APPROVED
     assert approved.approved_by_id == checker.id
     assert approved.approved_at is not None
+

@@ -106,6 +106,16 @@ def create_application() -> FastAPI:
     # 4. Mount Master Router
     app.include_router(api_v1_router)
 
+    # 5. Root JWKS Discovery Endpoint (RFC 7517)
+    from backend.app.db.session import get_db
+    from backend.app.services.key_management_service import KeyManagementService
+    from fastapi import Depends
+    from sqlalchemy.orm import Session
+
+    @app.get("/.well-known/jwks.json", tags=["JWKS Discovery"])
+    def root_jwks(db: Session = Depends(get_db)):
+        return KeyManagementService.build_jwks(db)
+
     return app
 
 

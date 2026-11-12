@@ -91,3 +91,4 @@ def test_duplicate_sender_batch_id_blocked():
     # Second submission with identical sender_batch_id must fail
     with pytest.raises(DuplicatePayoutBatchException):
         mock_provider.create_payout_batch(batch_req)
+

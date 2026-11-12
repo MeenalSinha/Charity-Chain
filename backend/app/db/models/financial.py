@@ -47,7 +47,15 @@ class Donation(Base):
     project = relationship("Project", back_populates="donations")
     milestone = relationship("Milestone", back_populates="donations")
     orders = relationship("PaymentOrder", back_populates="donation", cascade="all, delete-orphan")
-    certificate = relationship("ImpactCertificate", back_populates="donation", uselist=False)
+    certificates = relationship("ImpactCertificate", back_populates="donation")
+
+    @property
+    def certificate(self):
+        """Returns the latest active or issued certificate (for backward compatibility)."""
+        if self.certificates:
+            active = [c for c in self.certificates if getattr(c, "status", "ACTIVE") in ("ACTIVE", "ISSUED")]
+            return active[-1] if active else self.certificates[-1]
+        return None
 
 
 class PaymentOrder(Base):

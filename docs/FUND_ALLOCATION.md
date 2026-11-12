@@ -4,6 +4,10 @@
 
 CharityChain enforces strict financial segregation, mathematical immutability, and deterministic allocation of donor capital across project milestones. Donors fund specific charitable projects, and funds are reserved for and allocated to specific, verifiable milestones according to project budgets and verified completion gates.
 
+> [!IMPORTANT]
+> **Legal & Custodial Disclosure**:
+> Internal milestone fund allocations and ledger accounts (e.g., `20100 - Project Milestone Allocation Liability`) represent internal accounting reservations and platform obligations. They do **not** constitute legally chartered banking escrow trusts, fiduciary custodial accounts, or bankruptcy-remote funds. Only confirmed provider payouts constitute actual disbursement. Completed milestones and internal approvals do not guarantee fund disbursement until an authorized provider-confirmed payout occurs.
+
 To ensure absolute auditability and prevent fractional rounding discrepancies, **all monetary calculations strictly operate on 64-bit integer minor currency units (cents)**. Floating-point arithmetic is forbidden across the entire financial subsystem.
 
 ---
@@ -108,3 +112,4 @@ Every change in fund allocation corresponds to journal entries in the double-ent
 3. **Multi-Currency Isolation**:
    - CharityChain currently pins projects to single base currencies (default: `USD`).
    - Cross-currency donations are converted at gateway capture time and recorded in the project base currency.
+

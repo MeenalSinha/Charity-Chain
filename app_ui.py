@@ -34,7 +34,8 @@ from backend.app.core.constants import (
     ReconciliationResult, DisputeStatus, DisputeCategory, DisputeResolution,
     PayoutRecipientStatus, RecipientType, DisbursementMethod, DisbursementStatus,
     LedgerAccountType, LedgerEntryType, ReconciliationRunStatus, ReconciliationStatus,
-    DiscrepancyType, DiscrepancyResolution
+    DiscrepancyType, DiscrepancyResolution,
+    CertificateType, CertificateStatus, CertificateRevocationReason, ImpactLedgerEventType
 )
 from backend.app.api.schemas import (
     CreateOrganizationRequest, UpdateOrganizationRequest, OrganizationDecisionRequest,
@@ -2151,6 +2152,235 @@ def page_submit_evidence():
 
 
 # ============================================================================
+# PHASE 9: PROOF-OF-IMPACT CERTIFICATES & IMPACT LEDGER
+# ============================================================================
+
+def page_certificates():
+    st.header("📜 Proof-of-Impact Certificates & Cryptographic Ledger")
+    st.markdown("Verifiable digital impact attestations backed by asymmetric Ed25519 signatures, RFC 8785 canonical claims, and an append-only event ledger.")
+    
+    tab_gallery, tab_verify, tab_ledger, tab_admin = st.tabs([
+        "🎓 My Certificates",
+        "🔍 Public Verification",
+        "⛓️ Impact Ledger Explorer",
+        "⚙️ Certificate Governance"
+    ])
+    
+    with tab_gallery:
+        st.subheader("🎓 Verifiable Impact Attestations")
+        with SessionFactory() as db:
+            from backend.app.db.models.reviews_impact import ImpactCertificate
+            from backend.app.db.models.financial import Donation
+            from backend.app.db.models.projects import Milestone, Project
+            
+            # Fetch all or user certificates
+            certs = db.query(ImpactCertificate).order_by(ImpactCertificate.created_at.desc()).all()
+            
+            col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+            total_certs = len(certs)
+            active_certs = len([c for c in certs if c.status in ("ISSUED", "ACTIVE")])
+            suspended_certs = len([c for c in certs if c.status == "SUSPENDED"])
+            revoked_certs = len([c for c in certs if c.status == "REVOKED"])
+            
+            col_m1.metric("Total Attestations", total_certs)
+            col_m2.metric("Active & Verified", active_certs)
+            col_m3.metric("Suspended", suspended_certs)
+            col_m4.metric("Revoked", revoked_certs)
+            
+            st.markdown("---")
+            if not certs:
+                st.info("📜 No Proof-of-Impact certificates issued yet. Certificates are issued automatically upon verified milestone completion.")
+            else:
+                for c in certs:
+                    status_color = "#10B981" if c.status in ("ISSUED", "ACTIVE") else ("#EF4444" if c.status == "REVOKED" else "#F59E0B")
+                    with st.expander(f"📜 {c.certificate_number} — [{c.status}] ({c.recipient_name or 'Anonymous'})", expanded=(c.status in ("ISSUED", "ACTIVE"))):
+                        c_col1, c_col2 = st.columns([3, 1])
+                        with c_col1:
+                            st.markdown(f"**Certificate Type:** `{c.certificate_type}`")
+                            st.markdown(f"**Verification ID:** `{c.verification_id}`")
+                            st.markdown(f"**Status:** <span style='color:{status_color};font-weight:bold;'>{c.status}</span>", unsafe_allow_html=True)
+                            st.markdown(f"**Signing Key ID:** `{c.signing_key_id}` | **Algorithm:** `{c.signature_algorithm}`")
+                            st.markdown(f"**Payload SHA-256:** `{c.payload_hash}`")
+                            
+                            # Render download button
+                            from backend.app.services.certificate_rendering_service import CertificateRenderingService
+                            import json
+                            claims_dict = json.loads(c.canonical_payload) if c.canonical_payload else {}
+                            v_url = c.qr_code_url or f"http://localhost:8000/api/v1/public/certificates/{c.verification_id}"
+                            try:
+                                pdf_bytes, _ = CertificateRenderingService.render_certificate_pdf(
+                                    claims=claims_dict,
+                                    signature_b64=c.signature,
+                                    signing_key_id=c.signing_key_id,
+                                    verification_url=v_url
+                                )
+                                st.download_button(
+                                    label="📥 Download Signed PDF Certificate",
+                                    data=pdf_bytes,
+                                    file_name=f"{c.certificate_number}.pdf",
+                                    mime="application/pdf",
+                                    key=f"dl_{c.id}"
+                                )
+                            except Exception as ex:
+                                st.caption(f"PDF generator ready: {ex}")
+                                
+                        with c_col2:
+                            # Render QR Code
+                            from backend.app.services.certificate_rendering_service import CertificateRenderingService
+                            qr_bytes = CertificateRenderingService.generate_qr_code_png(v_url)
+                            st.image(qr_bytes, caption="Scan to Verify", width=140)
+                            st.caption(f"[Verify Link]({v_url})")
+                            
+                        with st.expander("🔍 Inspect Signed Canonical Claims"):
+                            st.code(c.canonical_payload, language="json")
+                            st.markdown(f"**Ed25519 Signature:** `{c.signature}`")
+                            
+            # Legacy TinyDB records section
+            st.markdown("---")
+            with st.expander("🕰️ Legacy Prototype Local Certificate Records (TinyDB)"):
+                st.caption("These records represent legacy digital certificates generated by the prototype before Phase 9 cryptographic upgrade.")
+                show_nft_gallery(st.session_state.user_id, st.session_state.db)
+
+    with tab_verify:
+        st.subheader("🔍 Public Proof-of-Impact Verification")
+        st.markdown("Enter any Certificate Number or high-entropy Verification Token to independently verify authenticity.")
+        v_token = st.text_input("Verification Token or ID", placeholder="e.g. CC-CERT-20261112-... or verification_id", key="pub_v_token")
+        if st.button("🔍 Verify Certificate", key="btn_pub_verify"):
+            if not v_token.strip():
+                st.warning("Please enter a token or certificate ID.")
+            else:
+                with SessionFactory() as db:
+                    from backend.app.services.public_verification_service import PublicVerificationService
+                    from backend.app.db.models.reviews_impact import ImpactCertificate
+                    
+                    # Resolve ID
+                    resolved_id = v_token.strip()
+                    cert_by_num = db.query(ImpactCertificate).filter(
+                        (ImpactCertificate.certificate_number == resolved_id) |
+                        (ImpactCertificate.verification_id == resolved_id)
+                    ).first()
+                    
+                    if cert_by_num:
+                        resolved_id = cert_by_num.verification_id
+                        
+                    res = PublicVerificationService.verify_certificate(db, resolved_id)
+                    
+                    outcome = res.get("verification_outcome")
+                    if outcome == "VALID":
+                        st.success(f"✅ CERTIFICATE VERIFIED: This certificate is authentic, digitally signed by CharityChain, and currently ACTIVE.")
+                    elif outcome in ("REVOKED", "SUSPENDED"):
+                        st.warning(f"⚠️ {outcome}: Signature is cryptographically valid, but the certificate has been {outcome.lower()} under governance rules.")
+                    elif outcome == "PAYLOAD_MODIFIED":
+                        st.error("❌ TAMPERING DETECTED: The claim payload does not match the recorded cryptographic hash!")
+                    elif outcome == "INVALID_SIGNATURE":
+                        st.error("❌ INVALID SIGNATURE: The Ed25519 cryptographic signature failed verification!")
+                    else:
+                        st.info(f"ℹ️ Status: {outcome} ({res.get('message', '')})")
+                        
+                    st.json(res)
+
+    with tab_ledger:
+        st.subheader("⛓️ Proof-of-Impact Event Ledger")
+        st.markdown("Cryptographically chained, tamper-evident audit stream of verified milestone progress, reviews, and releases.")
+        with SessionFactory() as db:
+            from backend.app.db.models.projects import Milestone
+            from backend.app.db.models.reviews_impact import ImpactLedgerStream, ImpactLedgerEvent
+            from backend.app.services.impact_ledger_service import ImpactLedgerService
+            
+            milestones = db.query(Milestone).all()
+            if not milestones:
+                st.info("No milestones found.")
+            else:
+                m_map = {f"Milestone #{m.sequence_number}: {m.title} ({m.id[:8]})": m.id for m in milestones}
+                selected_label = st.selectbox("Select Milestone Stream", list(m_map.keys()))
+                m_id = m_map[selected_label]
+                stream_id = f"milestone-{m_id}"
+                
+                # Action: Verify Stream Chain
+                if st.button("🔐 Verify Stream Cryptographic Integrity"):
+                    report = ImpactLedgerService.verify_stream_chain(db, stream_id)
+                    if report.get("is_valid"):
+                        st.success(f"✅ STREAM INTEGRITY VALID: All {report.get('total_events', 0)} events verified without chain breaks or tampering!")
+                    else:
+                        st.error(f"❌ STREAM TAMPERING DETECTED: {', '.join(report.get('errors', []))}")
+                    st.json(report)
+                
+                # Fetch stream events
+                events = db.query(ImpactLedgerEvent).filter(
+                    ImpactLedgerEvent.stream_id == stream_id
+                ).order_by(ImpactLedgerEvent.sequence_number.asc()).all()
+                
+                if not events:
+                    st.caption("No events recorded in this milestone stream yet.")
+                else:
+                    for ev in events:
+                        st.markdown(f"""
+                        <div style="background:#F8FAFC; padding:10px; border-left:4px solid #0284C7; margin-bottom:8px; border-radius:4px;">
+                            <strong>Seq #{ev.sequence_number} | {ev.event_type}</strong> — <small>{ev.timestamp.isoformat()}</small><br/>
+                            <small><b>Prev Hash:</b> <code>{ev.previous_event_hash[:16]}...</code> | <b>Current Hash:</b> <code>{ev.current_event_hash[:16]}...</code></small>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        with st.expander(f"View Event #{ev.sequence_number} Payload"):
+                            st.code(ev.payload_json, language="json")
+
+    with tab_admin:
+        st.subheader("⚙️ Certificate Governance & Key Management")
+        with SessionFactory() as db:
+            from backend.app.db.models.reviews_impact import ImpactCertificate, IssuerSigningKey
+            from backend.app.services.certificate_service import CertificateService
+            from backend.app.services.key_management_service import KeyManagementService
+            
+            st.markdown("#### 🔑 Active Ed25519 Issuer Keys")
+            keys = db.query(IssuerSigningKey).all()
+            if keys:
+                for k in keys:
+                    st.markdown(f"- **Key ID:** `{k.key_id}` | **Algorithm:** `{k.algorithm}` | **Status:** `{k.status}` (Activated: {k.activated_at.strftime('%Y-%m-%d')})")
+            else:
+                st.caption("No keys in database. Ensuring active key is registered...")
+                KeyManagementService.ensure_active_key_registered(db)
+                st.rerun()
+                
+            st.markdown("---")
+            st.markdown("#### 🛑 Certificate Lifecycle Control")
+            certs = db.query(ImpactCertificate).all()
+            if certs:
+                c_map = {f"{c.certificate_number} — [{c.status}]": c.id for c in certs}
+                target_cert_label = st.selectbox("Select Certificate to Manage", list(c_map.keys()))
+                target_cert_id = c_map[target_cert_label]
+                
+                gov_col1, gov_col2 = st.columns(2)
+                with gov_col1:
+                    st.markdown("##### Suspend Certificate")
+                    susp_reason = st.text_input("Suspension Reason", placeholder="e.g. Under investigation for disputed evidence", key="susp_r")
+                    if st.button("⚠️ Suspend Certificate", key="btn_susp"):
+                        if not susp_reason.strip():
+                            st.error("Reason is required.")
+                        else:
+                            try:
+                                CertificateService.suspend_certificate(db, target_cert_id, reason_code="GOVERNANCE_HOLD", reason_description=susp_reason)
+                                st.success("Certificate suspended.")
+                                time.sleep(1)
+                                st.rerun()
+                            except Exception as e:
+                                st.error(str(e))
+                                
+                with gov_col2:
+                    st.markdown("##### Revoke Certificate")
+                    rev_reason = st.selectbox("Revocation Reason Code", [
+                        "FULL_REFUND", "CHARGEBACK", "REVIEW_OVERTURNED", "FRAUDULENT_EVIDENCE", "INCORRECT_CLAIM", "ADMINISTRATIVE_CORRECTION"
+                    ], key="rev_r_code")
+                    rev_desc = st.text_input("Detailed Revocation Description", placeholder="e.g. Donor contribution fully refunded", key="rev_desc")
+                    if st.button("🚫 Revoke Certificate", key="btn_rev"):
+                        try:
+                            CertificateService.revoke_certificate(db, target_cert_id, reason_code=rev_reason, reason_description=rev_desc)
+                            st.success("Certificate revoked.")
+                            time.sleep(1)
+                            st.rerun()
+                        except Exception as e:
+                            st.error(str(e))
+
+
+# ============================================================================
 # MAIN ROUTING
 # ============================================================================
 
@@ -2245,8 +2475,7 @@ def main():
         if m and FOLIUM_AVAILABLE:
             folium_static(m, width=1200, height=600)
     elif page == "Certificates":
-        st.header("📜 My Proof-of-Impact Certificates")
-        show_nft_gallery(st.session_state.user_id, st.session_state.db)
+        page_certificates()
 
 if __name__ == "__main__":
     try:

@@ -48,6 +48,11 @@ data/*.db
 !data/charity.db
 data/evidence/*
 !data/evidence/.gitkeep
+data/keys/*
+!data/keys/.gitkeep
+data/certificates/*
+!data/certificates/.gitkeep
+!data/certificates/pdf/.gitkeep
 storage/*
 !storage/.gitkeep
 logs/*.log

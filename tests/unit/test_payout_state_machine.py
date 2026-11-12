@@ -53,3 +53,4 @@ def test_invalid_disbursement_lifecycle_transitions():
     # Terminal FAILED cannot transition
     with pytest.raises(ValidationException):
         validate_disbursement_transition(DisbursementStatus.FAILED, DisbursementStatus.APPROVED)
+

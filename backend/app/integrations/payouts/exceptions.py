@@ -68,3 +68,4 @@ class PayoutCurrencyUnsupportedException(PayoutException):
             code="UNSUPPORTED_PAYOUT_CURRENCY",
             details={"currency": currency}
         )
+

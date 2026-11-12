@@ -177,3 +177,4 @@ Enhanced to support maker-checker approvals, recipient linking, batch scheduling
 - Added `failure_reason`: Error description upon failure (nullable).
 - Added `retry_count`: Integer retry attempts counter (default `0`).
 - Added `last_retry_at`: Timestamp of latest retry attempt (nullable).
+

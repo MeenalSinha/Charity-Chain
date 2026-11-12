@@ -268,3 +268,4 @@ def downgrade() -> None:
     op.drop_table('ledger_accounts')
     op.drop_table('payout_batches')
     op.drop_table('payout_recipients')
+

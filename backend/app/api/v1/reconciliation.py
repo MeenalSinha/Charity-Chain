@@ -149,3 +149,4 @@ def ingest_settlement_record(
         },
         message="Settlement record ingested"
     )
+

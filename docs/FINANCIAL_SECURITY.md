@@ -123,3 +123,4 @@ CharityChain's security posture is continually verified through dedicated test s
 - `tests/security/test_duplicate_payout_prevention.py`: Verifies idempotency, concurrency locks, and replay prevention.
 - `tests/security/test_ledger_immutability.py`: Verifies mathematical balance invariants and anti-tampering rules.
 - `tests/security/test_payment_security.py`: Verifies IDOR protection, authentication requirements, and encryption.
+

@@ -586,3 +586,4 @@ class LedgerService:
             "entries_count": len(statement_entries),
             "entries": statement_entries
         }
+

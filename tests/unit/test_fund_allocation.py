@@ -130,3 +130,4 @@ def test_fund_allocation_balance_calculations(db_session, allocation_setup):
     assert summary4["committed_payouts_minor_units"] == 0
     assert summary4["succeeded_payouts_minor_units"] == 30000
     assert summary4["available_balance_minor_units"] == 55000
+

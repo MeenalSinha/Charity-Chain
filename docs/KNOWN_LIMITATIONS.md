@@ -13,9 +13,9 @@ This document maintains an accurate, truthful record of functionality that is cu
   - Independent reviewer approval and human review workflows are deferred to Phase 7.
   - Milestone fund disbursements to NGOs are deferred to Phase 8.
 
-## 2. Blockchain & Smart Contracts
-- **Current Status**: No smart contracts are deployed to an active blockchain. Ethereum/Polygon mentions in the original prototype were simulated using local Python logic and TinyDB. The current release explicitly labels these as "Milestone-Locked Funds" and "Proof-of-Impact Digital Certificates" rather than true on-chain transactions or NFTs.
-- **Target (Phase 4 & 9)**: Real payment gateway escrow/authorization holds (PayPal REST API) and cryptographically verifiable digital certificates.
+## 2. Blockchain & Smart Contracts (Truthful Labeling)
+- **Current Status**: No smart contracts are deployed to a public decentralized blockchain. CharityChain does not issue ERC-721/ERC-1155 tokens on Ethereum or Polygon. The platform's verification model uses an **Append-Only Cryptographic Impact Event Ledger** and **Ed25519 Asymmetric Digital Certificates** (RFC 8785 canonical JSON). All marketing and documentation accurately reference "Proof-of-Impact Certificates" and "Cryptographic Event Ledgers" rather than decentralized smart contracts or NFTs.
+- **Verification Guarantee**: Tamper-evident authenticity is guaranteed by asymmetric digital signatures and SHA-256 hash chaining, verifiable via standard RFC 7517 JWKS discovery or offline air-gapped CLI tools.
 
 ## 3. Computer Vision & AI Verification (Phase 6 Completed)
 - **Current Status**:
@@ -91,9 +91,28 @@ This document maintains an accurate, truthful record of functionality that is cu
   - **PayPal Domestic Regulatory Restrictions**: In certain jurisdictions (e.g., PayPal India domestic personal payouts), domestic P2P/payout transfers require specialized merchant regulatory clearance. For local testing and restricted environments, the configurable `MockPayoutProvider` (`PAYOUT_PROVIDER="mock"`) provides high-fidelity simulation.
   - **Banking & Wire Rail Integrations**: `BANK_TRANSFER` recipient methods are fully modeled with AES-256 encrypted routing/account fields and state tracking. Direct clearing via Fedwire/ACH/SEPA requires enterprise banking partner integration.
 - **Boundaries Preserved**:
-  - Public Proof-of-Impact certificates and cryptographic NFT generation remain strictly deferred to Phase 9.
   - Direct external transactional email dispatch and donor notifications remain deferred to Phase 10.
   - Public donor transparency dashboard and aggregated impact heatmaps remain deferred to Phase 11.
+
+## 9. Proof-of-Impact Ledger & Certificates (Phase 9 Completed)
+- **Current Status**:
+  - Complete digital impact attestation infrastructure implemented with Ed25519 asymmetric signatures and RFC 8785 canonical JSON formatting.
+  - Append-only cryptographic impact ledger with deterministic SHA-256 hash chaining ($H_i = \text{SHA256}(H_{i-1} \parallel E_i)$) and periodic signed checkpoints.
+  - 9-gate automated eligibility verification engine (`CertificateEligibilityService`).
+  - ReportLab PDF generator with landscape A4 layouts, guilloche borders, impact metrics, and high-contrast verification QR codes.
+  - Public unauthenticated verification endpoints (`/api/v1/public/certificates/{verification_id}`), raw cryptographic proof envelopes, and RFC 7517 JWKS discovery (`/.well-known/jwks.json`).
+  - Privacy by Design: default anonymity (`"Anonymous Contributor"`), consent-based attribution, and strict suppression of donor email addresses and payment instrument references.
+  - Administrative lifecycle management (`suspend`, `revoke`, `supersede`) with append-only audit tracking.
+  - CLI commands (`generate-issuer-key`, `verify-certificate`) for air-gapped cryptographic validation.
+  - Streamlit UI workspace for certificate issuance, public QR verification, and ledger chain audits.
+- **Operational & Architectural Disclosures**:
+  - **Internal Ledger vs. Public Chain**: The impact event ledger is maintained as an append-only cryptographic event chain in PostgreSQL with signed state checkpoints. It provides non-repudiation and mathematical tamper-evidence without gas fees, network latency, or public token volatility.
+  - **Offline Verification**: Independent verifiers can validate certificate signatures offline using standard Ed25519 cryptographic tools, provided they have cached the issuer public key from `/.well-known/jwks.json` or received the public key out-of-band.
+- **Boundaries Preserved**:
+  - Direct external transactional email delivery and donor push alerts remain deferred to Phase 10.
+  - Public transparency dashboards, geographic impact heatmaps, and aggregated portfolio analytics remain deferred to Phase 11.
+  - Full Next.js frontend migration remains scheduled for Phase 12.
+
 
 
 

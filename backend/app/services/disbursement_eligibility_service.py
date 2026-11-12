@@ -274,3 +274,4 @@ class DisbursementEligibilityService:
             "failed_checks": failed_checks,
             "rejection_reasons": rejection_reasons
         }
+

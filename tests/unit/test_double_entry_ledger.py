@@ -132,3 +132,4 @@ def test_journal_entry_reversal_parity(db_session):
 
     tb = LedgerService.get_trial_balance(db_session)
     assert tb["is_balanced"] is True
+

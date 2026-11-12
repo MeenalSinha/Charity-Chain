@@ -78,6 +78,80 @@ def create_platform_admin(email: str, name: str, password: str) -> bool:
         return True
 
 
+def generate_issuer_key(key_id: str) -> bool:
+    """Generates an Ed25519 issuer signing keypair and registers the public key."""
+    from backend.app.services.key_management_service import KeyManagementService
+    with SessionFactory() as db:
+        new_kid, record = KeyManagementService.rotate_key(db=db, new_key_id=key_id)
+        print(f"Successfully generated and registered issuer signing key '{new_kid}'.")
+        print(f"Algorithm: {record.algorithm}")
+        print(f"Status: {record.status}")
+        return True
+
+
+def verify_certificate_file(file_path: str) -> bool:
+    """Independently verifies an offline certificate JSON payload."""
+    import json
+    import hashlib
+    from pathlib import Path
+    from backend.app.core.canonical_json import canonicalize_json
+    from backend.app.services.key_management_service import KeyManagementService
+    from backend.app.db.models.reviews_impact import IssuerSigningKey
+
+    p = Path(file_path)
+    if not p.exists():
+        print(f"Error: File '{file_path}' does not exist.")
+        return False
+
+    with open(p, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    # Support either raw certificate record or claims envelope
+    claims = data.get("claims") or data.get("canonical_payload") or data
+    if isinstance(claims, str):
+        claims = json.loads(claims)
+
+    signature_b64 = data.get("signature") or ""
+    signing_key_id = data.get("signing_key_id") or claims.get("signing_key_id") or "key-charitychain-2026-v1"
+
+    canonical_str = canonicalize_json(claims)
+    payload_hash = hashlib.sha256(canonical_str.encode("utf-8")).hexdigest()
+
+    with SessionFactory() as db:
+        key_record = db.query(IssuerSigningKey).filter(IssuerSigningKey.key_id == signing_key_id).first()
+        key_pem = key_record.public_key_pem if key_record else ""
+
+    if not key_pem:
+        # Check active key in memory/file
+        kid, priv = KeyManagementService.get_active_private_key()
+        if kid == signing_key_id:
+            from cryptography.hazmat.primitives import serialization
+            key_pem = priv.public_key().public_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PublicFormat.SubjectPublicKeyInfo
+            ).decode("utf-8")
+
+    if not key_pem:
+        print(f"Error: Signing key '{signing_key_id}' public verification key not found.")
+        return False
+
+    is_sig_valid = KeyManagementService.verify_signature(canonical_str, signature_b64, key_pem)
+
+    print("=" * 60)
+    print("CHARITYCHAIN OFFLINE CERTIFICATE VERIFICATION REPORT")
+    print("=" * 60)
+    print(f"Certificate Number: {claims.get('certificate_number', 'N/A')}")
+    print(f"Certificate Type:   {claims.get('certificate_type', 'N/A')}")
+    print(f"Issuer:             {claims.get('issuer', {}).get('name', 'N/A')}")
+    print(f"Project:            {claims.get('project', {}).get('title', 'N/A')}")
+    print(f"Milestone:          {claims.get('milestone', {}).get('title', 'N/A')}")
+    print(f"Signing Key ID:     {signing_key_id}")
+    print(f"Payload SHA-256:    {payload_hash}")
+    print(f"Signature Status:   {'[PASS] VALID' if is_sig_valid else '[FAIL] INVALID'}")
+    print("=" * 60)
+    return is_sig_valid
+
+
 def main():
     parser = argparse.ArgumentParser(description="CharityChain Administrative Management CLI")
     subparsers = parser.add_subparsers(dest="command", help="Administrative command to execute")
@@ -87,14 +161,27 @@ def main():
     admin_parser.add_argument("--name", default="System Administrator", help="Administrator full name")
     admin_parser.add_argument("--password", required=True, help="Secure password (minimum 8 chars)")
 
+    key_parser = subparsers.add_parser("generate-issuer-key", help="Generate and register an Ed25519 issuer signing key")
+    key_parser.add_argument("--key-id", required=True, help="Unique key identifier (e.g. key-charitychain-2026-v2)")
+
+    verify_parser = subparsers.add_parser("verify-certificate", help="Independently verify an offline certificate JSON file")
+    verify_parser.add_argument("file", help="Path to certificate JSON file")
+
     args = parser.parse_args()
 
     if args.command == "create-platform-admin":
         success = create_platform_admin(args.email, args.name, args.password)
         sys.exit(0 if success else 1)
+    elif args.command == "generate-issuer-key":
+        success = generate_issuer_key(args.key_id)
+        sys.exit(0 if success else 1)
+    elif args.command == "verify-certificate":
+        success = verify_certificate_file(args.file)
+        sys.exit(0 if success else 1)
     else:
         parser.print_help()
         sys.exit(1)
+
 
 
 if __name__ == "__main__":

@@ -65,3 +65,4 @@ To prevent fraud, collusion, and unauthorized release of funds, CharityChain enf
      - Debit `2100: Committed Milestone Payouts Payable`
      - Credit `2000: Designated Project Funds Liability`
 5. **Asynchronous Webhook Settlement:** As PayPal processes individual items, webhook notifications update item statuses and complete ledger postings.
+

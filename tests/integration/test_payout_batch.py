@@ -83,3 +83,4 @@ def test_multi_item_batch_partial_failure_handling(db_session, multi_batch_setup
     tb = LedgerService.get_trial_balance(db_session)
     assert tb["is_balanced"] is True
     assert tb["discrepancy_minor_units"] == 0
+

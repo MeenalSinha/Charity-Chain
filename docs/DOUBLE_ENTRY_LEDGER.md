@@ -70,3 +70,4 @@ Any attempt to commit an unbalanced transaction, record negative minor units, or
 - If an erroneous transaction occurs, an authorized operator posts an audited reversal entry via `reverse_journal_entry(...)`.
 - The original entry is marked `is_reversed = True` with a foreign key pointer `reversed_by_entry_id` linking to the offsetting journal entry.
 - Re-reversing an entry is rejected with `ConflictException`.
+

@@ -116,3 +116,4 @@ def test_complete_maker_checker_and_batch_submission_workflow(db_session, workfl
     tb_final = LedgerService.get_trial_balance(db_session)
     assert tb_final["is_balanced"] is True
     assert tb_final["discrepancy_minor_units"] == 0
+

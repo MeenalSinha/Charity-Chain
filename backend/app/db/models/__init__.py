@@ -25,7 +25,9 @@ from backend.app.db.models.evidence import (
 from backend.app.db.models.reviews_impact import (
     ReviewCase, ReviewCaseEvidence, ReviewTask, ReviewDecisionRecord,
     ReviewDispute, ReviewDisputeMessage, ReviewAuditEvent,
-    compute_review_audit_hash, ImpactCertificate, AuditEvent
+    compute_review_audit_hash, ImpactCertificate, AuditEvent,
+    CertificateStatusEvent, ImpactLedgerStream, ImpactLedgerEvent,
+    ImpactLedgerCheckpoint, IssuerSigningKey
 )
 
 __all__ = [
@@ -76,6 +78,11 @@ __all__ = [
     "ReviewAuditEvent",
     "compute_review_audit_hash",
     "ImpactCertificate",
-    "AuditEvent"
+    "AuditEvent",
+    "CertificateStatusEvent",
+    "ImpactLedgerStream",
+    "ImpactLedgerEvent",
+    "ImpactLedgerCheckpoint",
+    "IssuerSigningKey"
 ]
 

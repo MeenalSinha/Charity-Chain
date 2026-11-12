@@ -62,3 +62,4 @@ class PayoutBatchResponse(BaseModel):
     currency: str = "USD"
     items: List[PayoutItemResponse] = Field(default_factory=list)
     raw_response: Dict[str, Any] = Field(default_factory=dict)
+

@@ -126,3 +126,4 @@ Discrepancies cannot be deleted or bypassed. Every discrepancy item must be reso
 The reconciliation engine is covered by automated unit and integration tests:
 - `tests/integration/test_financial_reconciliation.py`: Tests clean matches, missing records, fee variance detection, and the resolution lifecycle.
 - Zero floating-point calculations verified across settlement record comparisons.
+

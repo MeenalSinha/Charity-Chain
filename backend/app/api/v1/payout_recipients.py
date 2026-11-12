@@ -163,3 +163,4 @@ def set_primary_payout_recipient(
         ),
         message="Primary payout recipient updated"
     )
+

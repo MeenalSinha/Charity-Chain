@@ -69,3 +69,4 @@ def test_cannot_reverse_reversed_entry_twice(db_session):
     # Second reversal attempt fails
     with pytest.raises(ConflictException):
         LedgerService.reverse_journal_entry(db=db_session, entry_id=entry.id, reason="Second reversal")
+

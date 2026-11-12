@@ -76,3 +76,4 @@ class JournalLine(Base):
 
     journal_entry = relationship("JournalEntry", back_populates="lines")
     account = relationship("LedgerAccount", back_populates="lines")
+

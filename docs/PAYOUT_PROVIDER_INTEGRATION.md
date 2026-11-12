@@ -72,3 +72,4 @@ CharityChain's `PayoutCapabilityMatrix` (`capability.py`) evaluates currency and
   - USD: Min $1.00 (100 cents), Max Item $20,000.00 (2,000,000 cents), Max Batch $1,000,000.00.
   - EUR: Min €1.00, Max Item €18,000.00.
   - GBP: Min £1.00, Max Item £16,000.00.
+

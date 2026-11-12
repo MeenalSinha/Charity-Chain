@@ -68,3 +68,4 @@ Because destination accounts represent real financial endpoints, CharityChain en
 4. **`REJECTED`**: Account failed verification checks (name mismatch, fraud check).
 5. **`SUSPENDED`**: Account temporarily frozen due to compliance or dispute concerns.
 6. **`INACTIVE`**: Account retired by the NGO.
+

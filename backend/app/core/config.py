@@ -208,6 +208,22 @@ class Settings(BaseSettings):
     DISBURSEMENT_RETRY_DELAY_SECONDS: int = Field(default=300, description="Delay in seconds before retrying failed disbursement")
     RECONCILIATION_DEFAULT_WINDOW_HOURS: int = Field(default=24, description="Default lookback window for financial reconciliation in hours")
 
+    # 10. Proof-of-Impact Ledger & Certificates (Phase 9)
+    ISSUER_ID: str = Field(default="charitychain-core-v1", description="Identifier of the certificate issuer")
+    ISSUER_NAME: str = Field(default="CharityChain Platform", description="Display name of the certificate issuer")
+    ISSUER_PUBLIC_URL: str = Field(default="http://localhost:8000", description="Public base URL for certificate verification endpoints")
+    FRONTEND_VERIFY_URL: str = Field(default="http://localhost:8501/?page=verify_certificate", description="Frontend URL for QR code scanning")
+    SIGNING_ALGORITHM: str = Field(default="Ed25519", description="Digital signature algorithm")
+    SIGNING_ACTIVE_KEY_ID: str = Field(default="key-charitychain-2026-v1", description="Identifier of the active signing key")
+    SIGNING_PRIVATE_KEY_B64: Optional[str] = Field(default=None, description="Base64 encoded Ed25519 private key (optional env var)")
+    SIGNING_KEY_DIR: str = Field(default="data/keys", description="Directory for local storage of signing keys in dev")
+    CERTIFICATE_SCHEMA_VERSION: str = Field(default="v9.0.0", description="Schema version of issued impact certificates")
+    CERTIFICATE_ELIGIBILITY_POLICY_VERSION: str = Field(default="v9.0.0", description="Policy version for certificate eligibility")
+    CERTIFICATE_PDF_STORAGE_DIR: str = Field(default="data/certificates/pdf", description="Directory for storing certificate PDFs")
+    IMPACT_LEDGER_SCHEMA_VERSION: str = Field(default="v9.0.0", description="Schema version of impact ledger events")
+    IMPACT_LEDGER_AUTO_CHECKPOINT_INTERVAL: int = Field(default=50, description="Event interval for generating signed checkpoints")
+
+
     @model_validator(mode="after")
     def validate_production_security(self):
         """Enforces that production deployments cannot use development secrets."""

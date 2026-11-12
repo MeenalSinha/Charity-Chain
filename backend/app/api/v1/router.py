@@ -30,6 +30,8 @@ from backend.app.api.v1.disbursements import router as disbursements_router
 from backend.app.api.v1.ledger import router as ledger_router
 from backend.app.api.v1.reconciliation import router as reconciliation_router
 from backend.app.api.v1.webhooks_payouts import router as webhooks_payouts_router
+from backend.app.api.v1.certificates import router as certificates_router
+from backend.app.api.v1.impact_ledger import router as impact_ledger_router
 
 api_v1_router = APIRouter(prefix=settings.API_PREFIX)
 
@@ -54,6 +56,8 @@ api_v1_router.include_router(disbursements_router)
 api_v1_router.include_router(ledger_router)
 api_v1_router.include_router(reconciliation_router)
 api_v1_router.include_router(webhooks_payouts_router)
+api_v1_router.include_router(certificates_router)
+api_v1_router.include_router(impact_ledger_router)
 
 
 @api_v1_router.get(

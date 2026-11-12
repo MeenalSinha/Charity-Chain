@@ -159,3 +159,4 @@ class MockPayoutProvider(PayoutProviderInterface):
             raise PayoutItemFailedException(f"Payout item {payout_item_id} not found in mock store.")
         self.items[payout_item_id]["transaction_status"] = "CANCELED"
         return {"payout_item_id": payout_item_id, "status": "CANCELED"}
+

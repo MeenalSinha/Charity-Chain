@@ -61,3 +61,4 @@ class PayoutProviderInterface(ABC):
     ) -> Dict[str, Any]:
         """Cancels an unclaimed payout item and returns funds to sender balance."""
         pass
+
