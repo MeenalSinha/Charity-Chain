@@ -223,6 +223,30 @@ class Settings(BaseSettings):
     IMPACT_LEDGER_SCHEMA_VERSION: str = Field(default="v9.0.0", description="Schema version of impact ledger events")
     IMPACT_LEDGER_AUTO_CHECKPOINT_INTERVAL: int = Field(default=50, description="Event interval for generating signed checkpoints")
 
+    # 11. Notifications, Webhooks & Communications (Phase 10)
+    EMAIL_PROVIDER: str = Field(default="dev_sink", description="Email delivery provider: 'dev_sink', 'smtp'")
+    SMTP_HOST: Optional[str] = Field(default=None, description="SMTP server hostname")
+    SMTP_PORT: int = Field(default=587, description="SMTP server port")
+    SMTP_USERNAME: Optional[str] = Field(default=None, description="SMTP authentication username")
+    SMTP_PASSWORD: Optional[str] = Field(default=None, description="SMTP authentication password")
+    SMTP_USE_TLS: bool = Field(default=True, description="Enable TLS for SMTP connection")
+    SMTP_USE_SSL: bool = Field(default=False, description="Enable SSL for SMTP connection")
+    SMTP_TIMEOUT_SECONDS: float = Field(default=10.0, description="SMTP socket timeout in seconds")
+    EMAIL_FROM_ADDRESS: str = Field(default="notifications@charitychain.org", description="Default sender email address")
+    EMAIL_FROM_NAME: str = Field(default="CharityChain Notifications", description="Default sender display name")
+
+    WEBHOOK_TIMEOUT_SECONDS: float = Field(default=10.0, description="Outbound webhook HTTP request timeout in seconds")
+    WEBHOOK_MAX_RETRIES: int = Field(default=5, description="Maximum automated delivery retry attempts for outbound webhooks")
+    WEBHOOK_BACKOFF_BASE_SECONDS: float = Field(default=10.0, description="Base exponential backoff interval in seconds")
+    WEBHOOK_BACKOFF_MAX_SECONDS: float = Field(default=86400.0, description="Maximum backoff ceiling in seconds (24 hours)")
+    WEBHOOK_SIGNATURE_TOLERANCE_SECONDS: int = Field(default=300, description="Timestamp tolerance window for replay defense in seconds")
+    WEBHOOK_AUTO_SUSPEND_THRESHOLD: int = Field(default=10, description="Consecutive failure threshold before auto-suspending webhook subscription")
+    WEBHOOK_ALLOW_INSECURE_HTTP: bool = Field(default=False, description="Allow non-HTTPS webhook URLs (development/testing only)")
+
+    OUTBOX_POLL_INTERVAL_SECONDS: float = Field(default=5.0, description="Polling interval in seconds for transactional event outbox")
+    OUTBOX_BATCH_SIZE: int = Field(default=50, description="Maximum batch size of pending outbox events to process per cycle")
+    OUTBOX_MAX_RETRIES: int = Field(default=5, description="Maximum dispatch retries for outbox events before dead-lettering")
+
 
     @model_validator(mode="after")
     def validate_production_security(self):
@@ -237,6 +261,8 @@ class Settings(BaseSettings):
                     raise ValueError("S3_ACCESS_KEY and S3_SECRET_KEY must be provided for S3/MinIO storage in production!")
             if not self.REVIEW_SECOND_REVIEW_REQUIRED or self.REVIEW_REQUIRED_APPROVALS < 2:
                 raise ValueError("Dual-key approval cannot be disabled in production! REVIEW_SECOND_REVIEW_REQUIRED=True and REVIEW_REQUIRED_APPROVALS>=2 required.")
+            if self.WEBHOOK_ALLOW_INSECURE_HTTP:
+                raise ValueError("Insecure HTTP webhooks (WEBHOOK_ALLOW_INSECURE_HTTP=True) are strictly prohibited in production!")
         return self
 
 

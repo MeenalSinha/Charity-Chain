@@ -15,15 +15,20 @@ from typing import Dict, Any, List, Optional
 from sqlalchemy import select, and_
 from sqlalchemy.orm import Session
 
+import json
 from backend.app.core.constants import (
-    DisbursementStatus, PlatformRole, RecipientType, DisbursementMethod
+    DisbursementStatus, PlatformRole, RecipientType, DisbursementMethod,
+    WebhookProcessingStatus, WebhookSignatureStatus, DomainEventType
 )
+from backend.app.core.events import DomainEvent
+from backend.app.services.outbox_service import OutboxService
 from backend.app.core.exceptions import (
     ValidationException, NotFoundException, ForbiddenException, ConflictException
 )
+from backend.app.integrations.payments.exceptions import WebhookVerificationFailedException
 from backend.app.core.logging import get_logger
 from backend.app.db.models.financial import (
-    Disbursement, PayoutRecipient, PayoutBatch, PayoutApproval
+    Disbursement, PayoutRecipient, PayoutBatch, PayoutApproval, WebhookEvent
 )
 from backend.app.db.models.projects import Milestone
 from backend.app.db.models.users import User
@@ -381,6 +386,93 @@ class DisbursementService:
     # 4. Webhook Event Processing
     # -------------------------------------------------------------------------
 
+    def process_paypal_payout_webhook(
+        self,
+        db: Session,
+        headers: Dict[str, str],
+        raw_body: bytes
+    ) -> Dict[str, Any]:
+        """
+        Receives, cryptographically verifies, deduplicates, and processes incoming PayPal payout webhooks.
+        Guarantees that unverified webhooks never alter financial states.
+        """
+        try:
+            body_json = json.loads(raw_body.decode("utf-8")) if raw_body else {}
+        except Exception:
+            raise ValidationException("Invalid webhook payload: not valid JSON")
+
+        event_id = body_json.get("id")
+        event_type = body_json.get("event_type", "UNKNOWN")
+        resource = body_json.get("resource", {})
+
+        if not event_id:
+            raise ValidationException("Missing required event 'id' in webhook payload")
+
+        # 1. Deduplication Check
+        existing_event = db.execute(select(WebhookEvent).where(WebhookEvent.event_id == event_id)).scalar_one_or_none()
+        if existing_event and existing_event.processing_status == WebhookProcessingStatus.PROCESSED:
+            logger.info(f"Duplicate payout webhook event ignored: {event_id}")
+            return {"status": "DUPLICATE", "event_id": event_id, "message": "Event already processed"}
+
+        # 2. Cryptographic Signature Verification
+        is_signature_valid = self.provider.verify_webhook_signature(headers, raw_body)
+        if not is_signature_valid:
+            logger.warning(f"Rejected unverified PayPal payout webhook signature for event {event_id}")
+            if not existing_event:
+                failed_event = WebhookEvent(
+                    id=str(uuid.uuid4()),
+                    provider="PAYPAL_PAYOUTS",
+                    event_id=event_id,
+                    event_type=event_type,
+                    resource_id=resource.get("payout_item_id") or resource.get("batch_header", {}).get("payout_batch_id"),
+                    resource_type=body_json.get("resource_type", "payout"),
+                    signature_verification_status=WebhookSignatureStatus.FAILED,
+                    processing_status=WebhookProcessingStatus.FAILED,
+                    payload=json.dumps(body_json),
+                    failure_reason="Cryptographic signature verification failed"
+                )
+                db.add(failed_event)
+                db.commit()
+            raise WebhookVerificationFailedException("PayPal payout webhook signature verification failed.")
+
+        # 3. Create or update WebhookEvent record as VERIFIED
+        now = datetime.now(timezone.utc)
+        if not existing_event:
+            event_record = WebhookEvent(
+                id=str(uuid.uuid4()),
+                provider="PAYPAL_PAYOUTS",
+                event_id=event_id,
+                event_type=event_type,
+                resource_id=resource.get("payout_item_id") or resource.get("batch_header", {}).get("payout_batch_id"),
+                resource_type=body_json.get("resource_type", "payout"),
+                signature_verification_status=WebhookSignatureStatus.VERIFIED,
+                processing_status=WebhookProcessingStatus.PENDING,
+                payload=json.dumps(body_json)
+            )
+            db.add(event_record)
+            db.flush()
+        else:
+            event_record = existing_event
+
+        # 4. Process event
+        try:
+            result = self.process_payout_webhook_event(
+                db=db,
+                event_type=event_type,
+                resource=resource
+            )
+            event_record.processing_status = WebhookProcessingStatus.PROCESSED
+            event_record.processed_at = now
+            db.commit()
+            return result
+        except Exception as exc:
+            db.rollback()
+            event_record.processing_status = WebhookProcessingStatus.FAILED
+            event_record.failure_reason = str(exc)
+            event_record.retry_count = (event_record.retry_count or 0) + 1
+            db.commit()
+            raise
+
     def process_payout_webhook_event(
         self,
         db: Session,
@@ -437,6 +529,24 @@ class DisbursementService:
                     disbursement=disbursement,
                     provider_fee_minor_units=fee_minor
                 )
+
+                outbox_evt = DomainEvent.create(
+                    event_type=DomainEventType.DISBURSEMENT_COMPLETED.value,
+                    entity_type="disbursement",
+                    entity_id=disbursement.id,
+                    organization_id=disbursement.organization_id,
+                    actor_user_id=disbursement.approved_by_id,
+                    payload={
+                        "disbursement_id": disbursement.id,
+                        "milestone_id": disbursement.milestone_id,
+                        "amount_minor_units": disbursement.amount_minor_units,
+                        "currency": disbursement.currency,
+                        "provider_item_id": disbursement.provider_item_id,
+                        "provider_fee_minor_units": fee_minor
+                    }
+                )
+                OutboxService.record_event(db, outbox_evt)
+
                 db.commit()
 
             return {"status": "SUCCESS", "disbursement_id": disbursement.id if disbursement else None}
@@ -456,6 +566,23 @@ class DisbursementService:
                 errors = resource.get("errors", {})
                 disbursement.failure_reason = str(errors or "Payout item rejected by provider")
                 LedgerService.record_payout_failure_reversal(db=db, disbursement=disbursement)
+
+                outbox_evt = DomainEvent.create(
+                    event_type=DomainEventType.DISBURSEMENT_FAILED.value,
+                    entity_type="disbursement",
+                    entity_id=disbursement.id,
+                    organization_id=disbursement.organization_id,
+                    actor_user_id=disbursement.approved_by_id,
+                    payload={
+                        "disbursement_id": disbursement.id,
+                        "milestone_id": disbursement.milestone_id,
+                        "amount_minor_units": disbursement.amount_minor_units,
+                        "currency": disbursement.currency,
+                        "failure_reason": disbursement.failure_reason
+                    }
+                )
+                OutboxService.record_event(db, outbox_evt)
+
                 db.commit()
 
             return {"status": "FAILED_RECORDED", "disbursement_id": disbursement.id if disbursement else None}
@@ -474,6 +601,23 @@ class DisbursementService:
                 disbursement.status = DisbursementStatus.RETURNED
                 disbursement.failure_reason = f"Funds unclaimed or returned by provider: {event_type}"
                 LedgerService.record_payout_failure_reversal(db=db, disbursement=disbursement)
+
+                outbox_evt = DomainEvent.create(
+                    event_type=DomainEventType.DISBURSEMENT_FAILED.value,
+                    entity_type="disbursement",
+                    entity_id=disbursement.id,
+                    organization_id=disbursement.organization_id,
+                    actor_user_id=disbursement.approved_by_id,
+                    payload={
+                        "disbursement_id": disbursement.id,
+                        "milestone_id": disbursement.milestone_id,
+                        "amount_minor_units": disbursement.amount_minor_units,
+                        "currency": disbursement.currency,
+                        "failure_reason": disbursement.failure_reason
+                    }
+                )
+                OutboxService.record_event(db, outbox_evt)
+
                 db.commit()
 
             return {"status": "RETURNED_RECORDED", "disbursement_id": disbursement.id if disbursement else None}

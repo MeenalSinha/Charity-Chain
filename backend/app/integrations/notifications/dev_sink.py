@@ -43,6 +43,7 @@ class DevNotificationSink(NotificationProviderInterface):
 
         entry = {
             "recipient_email": recipient_email,
+            "to_email": recipient_email,
             "subject": subject,
             "html_body": html_body,
             "text_body": text_body or html_body,
@@ -51,6 +52,10 @@ class DevNotificationSink(NotificationProviderInterface):
         self.outbox.append(entry)
         logger.info(f"DevNotificationSink: Email recorded to outbox for <{recipient_email}>: '{subject}'")
         return True
+
+    @property
+    def captured_messages(self) -> List[Dict[str, Any]]:
+        return self.outbox
 
     async def send_email(
         self,
@@ -69,6 +74,12 @@ class DevNotificationSink(NotificationProviderInterface):
         data: Optional[Dict[str, Any]] = None
     ) -> bool:
         logger.info(f"DevNotificationSink: In-app notification for user <{user_id}>: '{title}'")
+        return True
+
+    def verify_connection(self) -> bool:
+        """Validates provider readiness. In production, dev sink is disallowed."""
+        if settings.ENVIRONMENT == EnvironmentType.PRODUCTION:
+            return False
         return True
 
     def get_latest_email_for(self, email: str) -> Optional[Dict[str, Any]]:

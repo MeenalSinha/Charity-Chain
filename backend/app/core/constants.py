@@ -512,3 +512,114 @@ class SigningKeyStatus(str, Enum):
     REVOKED = "REVOKED"
 
 
+# -----------------------------------------------------------------------------
+# Phase 10: Notifications, Webhooks & Communications
+# -----------------------------------------------------------------------------
+
+class NotificationCategory(str, Enum):
+    """Categorization for in-app and transactional notifications."""
+    ACCOUNT = "ACCOUNT"
+    DONATIONS = "DONATIONS"
+    PAYMENTS = "PAYMENTS"
+    PROJECTS = "PROJECTS"
+    MILESTONES = "MILESTONES"
+    EVIDENCE = "EVIDENCE"
+    VERIFICATION = "VERIFICATION"
+    DISBURSEMENTS = "DISBURSEMENTS"
+    CERTIFICATES = "CERTIFICATES"
+    SECURITY = "SECURITY"
+    SYSTEM = "SYSTEM"
+
+
+class NotificationChannel(str, Enum):
+    """Delivery mechanism channels for notifications."""
+    IN_APP = "IN_APP"
+    EMAIL = "EMAIL"
+
+
+class OutboxStatus(str, Enum):
+    """Processing state for transactional event outbox records."""
+    PENDING = "PENDING"
+    PROCESSING = "PROCESSING"
+    PROCESSED = "PROCESSED"
+    FAILED = "FAILED"
+    DEAD_LETTER = "DEAD_LETTER"
+
+
+class WebhookDeliveryStatus(str, Enum):
+    """Delivery attempt state for external webhook dispatches."""
+    PENDING = "PENDING"
+    DELIVERED = "DELIVERED"
+    FAILED = "FAILED"
+    DEAD_LETTER = "DEAD_LETTER"
+
+
+class WebhookSubscriptionStatus(str, Enum):
+    """Lifecycle and operational state for external webhook subscriptions."""
+    ACTIVE = "ACTIVE"
+    SUSPENDED = "SUSPENDED"
+    INACTIVE = "INACTIVE"
+
+
+class DomainEventType(str, Enum):
+    """Standardized event catalog across CharityChain domain contexts."""
+    # User and Organization
+    USER_REGISTERED = "user.registered"
+    EMAIL_VERIFICATION_COMPLETED = "user.email_verified"
+    ORGANIZATION_REGISTERED = "organization.registered"
+    ORGANIZATION_VERIFICATION_APPROVED = "organization.verified"
+    ORGANIZATION_VERIFICATION_REJECTED = "organization.rejected"
+    ORGANIZATION_SUSPENDED = "organization.suspended"
+
+    # Project and Milestone
+    PROJECT_CREATED = "project.created"
+    PROJECT_PUBLISHED = "project.published"
+    PROJECT_APPROVED = "project.approved"
+    PROJECT_SUSPENDED = "project.suspended"
+    MILESTONE_CREATED = "milestone.created"
+    MILESTONE_UPDATED = "milestone.updated"
+    MILESTONE_COMPLETED = "milestone.completed"
+
+    # Donation and Payment
+    DONATION_CREATED = "donation.created"
+    PAYMENT_AUTHORIZED = "payment.authorized"
+    PAYMENT_CAPTURED = "payment.captured"
+    PAYMENT_FAILED = "payment.failed"
+    PAYMENT_REFUNDED = "payment.refunded"
+    PAYMENT_DISPUTED = "payment.disputed"
+
+    # Evidence and AI Verification
+    EVIDENCE_SUBMITTED = "evidence.submitted"
+    EVIDENCE_PROCESSING_STARTED = "evidence.processing_started"
+    AI_VERIFICATION_COMPLETED = "ai_verification.completed"
+    AI_VERIFICATION_FAILED = "ai_verification.failed"
+    ADDITIONAL_EVIDENCE_REQUESTED = "evidence.additional_requested"
+    EVIDENCE_APPROVED = "evidence.approved"
+    EVIDENCE_REJECTED = "evidence.rejected"
+
+    # Review and Governance
+    REVIEW_ASSIGNED = "review.assigned"
+    REVIEW_APPROVED = "review.approved"
+    REVIEW_REJECTED = "review.rejected"
+    DUAL_KEY_APPROVAL_COMPLETED = "review.dual_key_completed"
+    DISPUTE_OPENED = "dispute.opened"
+    DISPUTE_RESOLVED = "dispute.resolved"
+
+    # Disbursement
+    DISBURSEMENT_REQUESTED = "disbursement.requested"
+    DISBURSEMENT_APPROVED = "disbursement.approved"
+    DISBURSEMENT_PROCESSING = "disbursement.processing"
+    DISBURSEMENT_COMPLETED = "disbursement.completed"
+    DISBURSEMENT_FAILED = "disbursement.failed"
+
+    # Impact and Certificate
+    CERTIFICATE_ISSUED = "certificate.issued"
+    CERTIFICATE_SUSPENDED = "certificate.suspended"
+    CERTIFICATE_REINSTATED = "certificate.reinstated"
+    CERTIFICATE_REVOKED = "certificate.revoked"
+    CERTIFICATE_SUPERSEDED = "certificate.superseded"
+    IMPACT_LEDGER_CHECKPOINT_CREATED = "impact_ledger.checkpoint_created"
+    IMPACT_LEDGER_INTEGRITY_FAILURE = "impact_ledger.integrity_failure"
+
+
+

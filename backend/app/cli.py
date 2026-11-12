@@ -152,6 +152,22 @@ def verify_certificate_file(file_path: str) -> bool:
     return is_sig_valid
 
 
+def run_notification_worker_cli(poll_interval: float = 5.0, batch_size: int = 50, once: bool = False) -> bool:
+    """Runs the transactional outbox notification & webhook delivery worker."""
+    from backend.app.workers.notification_worker import NotificationWorker
+    print(f"Starting CharityChain Notification Worker (poll={poll_interval}s, batch={batch_size}, once={once})...")
+    worker = NotificationWorker(session_factory=SessionFactory, poll_interval_seconds=poll_interval, batch_size=batch_size)
+    if once:
+        stats = worker.process_outbox_batch()
+        print(f"Single pass completed: {stats}")
+        return True
+    try:
+        worker.run_forever()
+    except KeyboardInterrupt:
+        print("\nNotification Worker stopped by user.")
+    return True
+
+
 def main():
     parser = argparse.ArgumentParser(description="CharityChain Administrative Management CLI")
     subparsers = parser.add_subparsers(dest="command", help="Administrative command to execute")
@@ -167,6 +183,11 @@ def main():
     verify_parser = subparsers.add_parser("verify-certificate", help="Independently verify an offline certificate JSON file")
     verify_parser.add_argument("file", help="Path to certificate JSON file")
 
+    worker_parser = subparsers.add_parser("run-notification-worker", help="Run transactional notification & webhook background worker")
+    worker_parser.add_argument("--poll-interval", type=float, default=5.0, help="Polling interval in seconds (default: 5.0)")
+    worker_parser.add_argument("--batch-size", type=int, default=50, help="Outbox batch size per cycle (default: 50)")
+    worker_parser.add_argument("--once", action="store_true", help="Process a single outbox batch and exit")
+
     args = parser.parse_args()
 
     if args.command == "create-platform-admin":
@@ -177,6 +198,9 @@ def main():
         sys.exit(0 if success else 1)
     elif args.command == "verify-certificate":
         success = verify_certificate_file(args.file)
+        sys.exit(0 if success else 1)
+    elif args.command == "run-notification-worker":
+        success = run_notification_worker_cli(args.poll_interval, args.batch_size, args.once)
         sys.exit(0 if success else 1)
     else:
         parser.print_help()

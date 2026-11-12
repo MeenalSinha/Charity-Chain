@@ -29,6 +29,11 @@ from backend.app.db.models.reviews_impact import (
     CertificateStatusEvent, ImpactLedgerStream, ImpactLedgerEvent,
     ImpactLedgerCheckpoint, IssuerSigningKey
 )
+from backend.app.db.models.notifications import (
+    NotificationOutbox, Notification, NotificationPreference,
+    NotificationDeliveryAttempt, WebhookSubscription, WebhookEndpointSecret,
+    WebhookDelivery, WebhookDeliveryAttempt, NotificationTemplateVersion
+)
 
 __all__ = [
     "Base",
@@ -83,6 +88,15 @@ __all__ = [
     "ImpactLedgerStream",
     "ImpactLedgerEvent",
     "ImpactLedgerCheckpoint",
-    "IssuerSigningKey"
+    "IssuerSigningKey",
+    "NotificationOutbox",
+    "Notification",
+    "NotificationPreference",
+    "NotificationDeliveryAttempt",
+    "WebhookSubscription",
+    "WebhookEndpointSecret",
+    "WebhookDelivery",
+    "WebhookDeliveryAttempt",
+    "NotificationTemplateVersion"
 ]
 

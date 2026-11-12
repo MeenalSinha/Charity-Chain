@@ -1326,6 +1326,102 @@ class ImpactLedgerCheckpointResponse(BaseModel):
     created_at: datetime
 
 
+# -----------------------------------------------------------------------------
+# Phase 10: Notifications & Webhooks Schemas
+# -----------------------------------------------------------------------------
+
+class NotificationResponse(BaseModel):
+    id: str
+    user_id: str
+    organization_id: Optional[str] = None
+    category: str
+    event_type: str
+    title: str
+    message: str
+    action_url: Optional[str] = None
+    entity_type: Optional[str] = None
+    entity_id: Optional[str] = None
+    is_read: bool
+    read_at: Optional[datetime] = None
+    is_archived: bool
+    created_at: datetime
+
+
+class NotificationListResponse(BaseModel):
+    items: List[NotificationResponse]
+    total: int
+    unread_count: int
+    page: int
+    page_size: int
+
+
+class NotificationPreferenceSchema(BaseModel):
+    email_enabled: bool = True
+    in_app_enabled: bool = True
+    donation_updates: bool = True
+    project_updates: bool = True
+    milestone_updates: bool = True
+    verification_updates: bool = True
+    certificate_notifications: bool = True
+    security_alerts: bool = True
+
+
+class CreateWebhookSubscriptionRequest(BaseModel):
+    endpoint_url: str
+    organization_id: Optional[str] = None
+    description: Optional[str] = None
+    subscribed_events: Optional[List[str]] = None
+
+
+class UpdateWebhookSubscriptionRequest(BaseModel):
+    endpoint_url: Optional[str] = None
+    description: Optional[str] = None
+    subscribed_events: Optional[List[str]] = None
+    is_active: Optional[bool] = None
+
+
+class WebhookSubscriptionResponse(BaseModel):
+    id: str
+    organization_id: Optional[str] = None
+    created_by_user_id: str
+    endpoint_url: str
+    description: Optional[str] = None
+    subscribed_events: List[str]
+    is_active: bool
+    consecutive_failures: int
+    suspended_at: Optional[datetime] = None
+    secret_prefix: Optional[str] = None
+    created_at: datetime
+
+
+class WebhookSubscriptionCreatedResponse(BaseModel):
+    subscription: WebhookSubscriptionResponse
+    secret: str
+    warning: str = "This signing secret will NEVER be displayed again. Store it securely."
+
+
+class WebhookDeliveryResponse(BaseModel):
+    id: str
+    subscription_id: str
+    event_id: str
+    event_type: str
+    status: str
+    retry_count: int
+    created_at: datetime
+    completed_at: Optional[datetime] = None
+
+
+class WebhookDeliveryAttemptResponse(BaseModel):
+    id: str
+    delivery_id: str
+    attempt_number: int
+    status_code: Optional[int] = None
+    error_message: Optional[str] = None
+    execution_duration_ms: int
+    attempted_at: datetime
+
+
+
 
 
 

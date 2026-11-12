@@ -19,7 +19,23 @@ class NotificationProviderInterface(ABC):
         html_body: str,
         text_body: Optional[str] = None
     ) -> bool:
-        """Dispatches transactional email."""
+        """Dispatches transactional email asynchronously."""
+        pass
+
+    @abstractmethod
+    def send_email_sync(
+        self,
+        recipient_email: str,
+        subject: str,
+        html_body: str,
+        text_body: Optional[str] = None
+    ) -> bool:
+        """Dispatches transactional email synchronously."""
+        pass
+
+    @abstractmethod
+    def verify_connection(self) -> bool:
+        """Verifies network connectivity and authentication with email provider."""
         pass
 
     @abstractmethod

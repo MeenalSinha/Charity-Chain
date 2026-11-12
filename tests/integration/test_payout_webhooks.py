@@ -12,8 +12,9 @@ import uuid
 import json
 from datetime import datetime, timezone
 from backend.app.core.constants import (
-    DisbursementStatus, WebhookProcessingStatus
+    DisbursementStatus, WebhookProcessingStatus, WebhookSignatureStatus
 )
+from backend.app.integrations.payments.exceptions import WebhookVerificationFailedException
 from backend.app.db.models.financial import Disbursement, WebhookEvent
 from backend.app.services.disbursement_service import DisbursementService
 from backend.app.services.ledger_service import LedgerService
@@ -107,4 +108,91 @@ def test_payout_item_failed_webhook(db_session, webhook_disb_setup):
     # Verify trial balance is still balanced after reversal
     tb = LedgerService.get_trial_balance(db_session)
     assert tb["is_balanced"] is True
+
+
+def test_payout_webhook_rejects_unverified_signature(db_session, webhook_disb_setup):
+    """Verifies that unverified payout webhooks are rejected and do not modify financial status."""
+    disb = webhook_disb_setup
+    mock_provider = MockPayoutProvider()
+    mock_provider.simulate_webhook_sig_failure = True
+    srv = DisbursementService(provider=mock_provider)
+
+    event_id = f"WH-UNVERIFIED-{uuid.uuid4().hex[:8]}"
+    payload = {
+        "id": event_id,
+        "event_type": "PAYMENT.PAYOUTS-ITEM.SUCCEEDED",
+        "resource_type": "payouts_item",
+        "resource": {
+            "payout_item_id": disb.provider_item_id,
+            "payout_item": {
+                "sender_item_id": disb.id,
+                "amount": {"value": "500.00", "currency": "USD"}
+            },
+            "payout_item_fee": {"value": "0.25", "currency": "USD"},
+            "transaction_status": "SUCCESS"
+        }
+    }
+    raw_body = json.dumps(payload).encode("utf-8")
+    headers = {"paypal-transmission-sig": "INVALID_SIGNATURE"}
+
+    with pytest.raises(WebhookVerificationFailedException):
+        srv.process_paypal_payout_webhook(db=db_session, headers=headers, raw_body=raw_body)
+
+    # Verify disbursement was NOT modified
+    db_session.refresh(disb)
+    assert disb.status == DisbursementStatus.PROCESSING
+
+    # Verify WebhookEvent recorded failure
+    event_rec = db_session.query(WebhookEvent).filter_by(event_id=event_id).first()
+    assert event_rec is not None
+    assert event_rec.signature_verification_status == WebhookSignatureStatus.FAILED
+    assert event_rec.processing_status == WebhookProcessingStatus.FAILED
+
+
+def test_payout_webhook_accepts_verified_signature(db_session, webhook_disb_setup):
+    """Verifies that verified payout webhooks succeed and update disbursement status."""
+    disb = webhook_disb_setup
+    mock_provider = MockPayoutProvider()
+    srv = DisbursementService(provider=mock_provider)
+
+    event_id = f"WH-VERIFIED-{uuid.uuid4().hex[:8]}"
+    payload = {
+        "id": event_id,
+        "event_type": "PAYMENT.PAYOUTS-ITEM.SUCCEEDED",
+        "resource_type": "payouts_item",
+        "resource": {
+            "payout_item_id": disb.provider_item_id,
+            "payout_item": {
+                "sender_item_id": disb.id,
+                "amount": {"value": "500.00", "currency": "USD"}
+            },
+            "payout_item_fee": {"value": "0.25", "currency": "USD"},
+            "transaction_status": "SUCCESS"
+        }
+    }
+    raw_body = json.dumps(payload).encode("utf-8")
+    headers = {
+        "paypal-auth-algo": "SHA256withRSA",
+        "paypal-cert-url": "https://api.sandbox.paypal.com/v1/cert",
+        "paypal-transmission-id": "tx-5678",
+        "paypal-transmission-sig": "VALID_SIGNATURE_BYTES_B64",
+        "paypal-transmission-time": "2026-11-12T12:00:00Z"
+    }
+
+    res = srv.process_paypal_payout_webhook(db=db_session, headers=headers, raw_body=raw_body)
+    assert res["status"] == "SUCCESS"
+
+    # Verify disbursement was updated
+    db_session.refresh(disb)
+    assert disb.status == DisbursementStatus.SUCCEEDED
+    assert disb.disbursed_at is not None
+
+    # Verify WebhookEvent recorded verified success
+    event_rec = db_session.query(WebhookEvent).filter_by(event_id=event_id).first()
+    assert event_rec is not None
+    assert event_rec.signature_verification_status == WebhookSignatureStatus.VERIFIED
+    assert event_rec.processing_status == WebhookProcessingStatus.PROCESSED
+
+
+
 

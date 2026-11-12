@@ -397,3 +397,54 @@ class PayPalPayoutProvider(PayoutProviderInterface):
     ) -> Dict[str, Any]:
         """Cancels an unclaimed payout item: POST /v1/payments/payouts-item/{id}/cancel."""
         return self._request("POST", f"/v1/payments/payouts-item/{payout_item_id}/cancel")
+
+    def verify_webhook_signature(
+        self,
+        headers: Dict[str, str],
+        raw_body: bytes,
+        webhook_id: Optional[str] = None
+    ) -> bool:
+        """
+        Cryptographically validates incoming PayPal payout webhook signatures via PayPal's
+        /v1/notifications/verify-webhook-signature endpoint.
+        """
+        import json
+        normalized_headers = {k.lower(): v for k, v in headers.items()}
+        auth_algo = normalized_headers.get("paypal-auth-algo")
+        cert_url = normalized_headers.get("paypal-cert-url")
+        transmission_id = normalized_headers.get("paypal-transmission-id")
+        transmission_sig = normalized_headers.get("paypal-transmission-sig")
+        transmission_time = normalized_headers.get("paypal-transmission-time")
+        target_webhook_id = webhook_id or getattr(settings, "PAYPAL_PAYOUTS_WEBHOOK_ID", None) or getattr(settings, "PAYPAL_WEBHOOK_ID", None)
+
+        if not all([auth_algo, cert_url, transmission_id, transmission_sig, transmission_time, target_webhook_id]):
+            logger.warning("Missing required PayPal payout webhook verification headers or webhook_id")
+            return False
+
+        try:
+            webhook_event = json.loads(raw_body.decode("utf-8")) if raw_body else {}
+        except Exception:
+            logger.error("Failed to parse raw payout webhook body as JSON for signature verification")
+            return False
+
+        verification_payload = {
+            "auth_algo": auth_algo,
+            "cert_url": cert_url,
+            "transmission_id": transmission_id,
+            "transmission_sig": transmission_sig,
+            "transmission_time": transmission_time,
+            "webhook_id": target_webhook_id,
+            "webhook_event": webhook_event
+        }
+
+        try:
+            res = self._request("POST", "/v1/notifications/verify-webhook-signature", json_data=verification_payload)
+            status = res.get("verification_status")
+            if status == "SUCCESS":
+                return True
+            logger.warning(f"PayPal payout webhook signature verification rejected with status: {status}")
+            return False
+        except Exception as exc:
+            logger.error(f"Error calling PayPal payout webhook signature verification: {str(exc)}")
+            return False
+

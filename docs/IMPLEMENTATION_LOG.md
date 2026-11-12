@@ -249,6 +249,24 @@
   - Integrated Streamlit UI workspace in `app_ui.py` supporting public QR scan verification, certificate issuance, PDF downloads, and ledger chain audits.
   - Authored 12 new test suites adding 43 tests across unit, integration, security, and functional layers. Total test suite: **306 / 306 passed (100%)** in 107.45s with 0 failures and 0 errors.
 
+## Phase 10: Notifications, Webhooks & Communications (Production-Grade Transactional Communication Infrastructure)
+- **Status**: COMPLETED
+- **Key Changes**:
+  - Conducted Pre-Phase 10 verification gate; discovered and repaired critical security gap in inbound PayPal payout webhook signature validation (`DisbursementService.process_paypal_payout_webhook`); verified baseline passing with 308/308 tests passed; published `docs/PRE_PHASE_10_VERIFICATION_REPORT.md`.
+  - Implemented transactional outbox pattern via `NotificationOutbox` model and `OutboxService` ensuring atomic persistence alongside primary domain database mutations with exponential backoff and jitter.
+  - Implemented `DomainEvent` with RFC 8785 canonical JSON serialization, deterministic key sorting, and recursive sensitive PII / credential redaction (passwords, tokens, API keys, authorization data).
+  - Implemented `NotificationService` supporting durable in-app notifications, unread count tracking, user-isolated paginated listing, IDOR-safe mark-read/archive states, and user preferences with immutable protection for critical security alerts.
+  - Implemented production-grade email architecture: `SMTPNotificationProvider` (STARTTLS, SSL, authentication, timeouts), `DevNotificationSink` (with fail-closed production protection), and factory management.
+  - Implemented responsive HTML email template engine (`EmailTemplateService`) with 600px mobile-first layout, strict `html.escape` XSS neutralization, plain-text fallback generation, and branded templates for receipts, certificates, reviews, and payouts.
+  - Implemented zero-trust SSRF protection engine (`validate_webhook_url`) blocking private RFC 1918 subnets, IPv4/IPv6 loopback, cloud metadata (`169.254.169.254`), non-standard ports, and plain HTTP in production with pre-dispatch anti-DNS rebinding checks.
+  - Implemented outbound webhook subscriptions (`WebhookSubscriptionService`) with Fernet AES-256 secret encryption at rest, single-disclosure creation, secret rotation, and cascaded deletion.
+  - Implemented outbound webhook dispatcher (`WebhookDeliveryService`) with HMAC-SHA256 request signing (`CharityChain-Signature: t=...,v1=...`), timestamp replay window (300s), attempt telemetry, and auto-suspension upon 10 consecutive failures.
+  - Created 9 relational models in `backend/app/db/models/notifications.py` and reversible Alembic migration `010_phase10_notifications_and_webhooks.py` verified at head.
+  - Enqueued domain events across existing services: `DonationService` (`payment.captured`, `payment.refunded`), `CertificateService` (`certificate.issued`, `certificate.suspended`, `certificate.revoked`), and `DisbursementService` (`disbursement.completed`, `disbursement.failed`).
+  - Implemented background `NotificationWorker` processing outbox batches, dispatching in-app alerts, emails, and webhooks. Added `run-notification-worker` CLI command to `backend/app/cli.py`.
+  - Integrated dedicated **Notifications & Webhooks** page in Streamlit `app_ui.py` covering Notification Center, Communication Preferences, and Outbound Webhooks management.
+  - Authored 10 automated test suites adding 29 tests across unit, integration, security, and functional layers. Full test suite: **337 / 337 passed (100%)** in 104s with 0 failures and 0 errors.
+
 
 
 

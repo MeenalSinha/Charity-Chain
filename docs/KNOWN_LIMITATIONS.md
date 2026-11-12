@@ -94,24 +94,24 @@ This document maintains an accurate, truthful record of functionality that is cu
   - Direct external transactional email dispatch and donor notifications remain deferred to Phase 10.
   - Public donor transparency dashboard and aggregated impact heatmaps remain deferred to Phase 11.
 
-## 9. Proof-of-Impact Ledger & Certificates (Phase 9 Completed)
+## 10. Notifications, Webhooks & Communications (Phase 10 Completed)
 - **Current Status**:
-  - Complete digital impact attestation infrastructure implemented with Ed25519 asymmetric signatures and RFC 8785 canonical JSON formatting.
-  - Append-only cryptographic impact ledger with deterministic SHA-256 hash chaining ($H_i = \text{SHA256}(H_{i-1} \parallel E_i)$) and periodic signed checkpoints.
-  - 9-gate automated eligibility verification engine (`CertificateEligibilityService`).
-  - ReportLab PDF generator with landscape A4 layouts, guilloche borders, impact metrics, and high-contrast verification QR codes.
-  - Public unauthenticated verification endpoints (`/api/v1/public/certificates/{verification_id}`), raw cryptographic proof envelopes, and RFC 7517 JWKS discovery (`/.well-known/jwks.json`).
-  - Privacy by Design: default anonymity (`"Anonymous Contributor"`), consent-based attribution, and strict suppression of donor email addresses and payment instrument references.
-  - Administrative lifecycle management (`suspend`, `revoke`, `supersede`) with append-only audit tracking.
-  - CLI commands (`generate-issuer-key`, `verify-certificate`) for air-gapped cryptographic validation.
-  - Streamlit UI workspace for certificate issuance, public QR verification, and ledger chain audits.
-- **Operational & Architectural Disclosures**:
-  - **Internal Ledger vs. Public Chain**: The impact event ledger is maintained as an append-only cryptographic event chain in PostgreSQL with signed state checkpoints. It provides non-repudiation and mathematical tamper-evidence without gas fees, network latency, or public token volatility.
-  - **Offline Verification**: Independent verifiers can validate certificate signatures offline using standard Ed25519 cryptographic tools, provided they have cached the issuer public key from `/.well-known/jwks.json` or received the public key out-of-band.
+  - Full transactional outbox architecture (`NotificationOutbox`, `OutboxService`) guaranteeing zero lost events during database transactions.
+  - Canonical domain events (`DomainEvent`) serialized with RFC 8785 canonical JSON and automatic recursive sanitization of credentials, passwords, and payment tokens.
+  - In-app notification center with real-time unread badges, paginated inbox listing, and granular user communication preferences protecting mandatory security alerts.
+  - Production-grade dual email provider architecture (`SMTPNotificationProvider` and `DevNotificationSink` with fail-closed production protection).
+  - Responsive HTML email template engine (`EmailTemplateService`) with XSS escaping and plain-text alternatives.
+  - Zero-trust SSRF protection engine (`validate_webhook_url`) blocking private subnets, loopback, cloud metadata (`169.254.169.254`), and dangerous ports with pre-dispatch anti-DNS rebinding checks.
+  - Outbound webhook subscriptions with Fernet AES-256 secret encryption at rest, HMAC-SHA256 request signing (`CharityChain-Signature: t=...,v1=...`), timestamp replay window (300s), attempt telemetry, and auto-suspension upon 10 consecutive failures.
+  - Background `NotificationWorker` with `run-notification-worker` CLI command.
+  - Interactive **Notifications & Webhooks** workspace in Streamlit UI (`app_ui.py`).
+- **Operational & Network Disclosures**:
+  - **Insecure HTTP Webhooks**: Strictly blocked in production environments (`WEBHOOK_ALLOW_INSECURE_HTTP=False`). Subscribed webhook endpoints must present valid TLS/HTTPS certificates.
+  - **Background Worker Runtime**: In development and testing, `NotificationWorker` can run on-demand or with `--once`. In clustered production deployments, run worker processes as dedicated background services.
 - **Boundaries Preserved**:
-  - Direct external transactional email delivery and donor push alerts remain deferred to Phase 10.
-  - Public transparency dashboards, geographic impact heatmaps, and aggregated portfolio analytics remain deferred to Phase 11.
+  - Public transparency dashboards, donor portfolio analytics, and geographic impact heatmaps remain deferred to Phase 11.
   - Full Next.js frontend migration remains scheduled for Phase 12.
+
 
 
 

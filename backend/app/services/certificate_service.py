@@ -17,8 +17,10 @@ from backend.app.core.config import settings
 from backend.app.core.canonical_json import canonicalize_json, compute_canonical_hash
 from backend.app.core.constants import (
     CertificateType, CertificateStatus, CertificateRevocationReason,
-    ImpactLedgerEventType
+    ImpactLedgerEventType, DomainEventType
 )
+from backend.app.core.events import DomainEvent
+from backend.app.services.outbox_service import OutboxService
 from backend.app.db.models.financial import Donation
 from backend.app.db.models.projects import Milestone, Project
 from backend.app.db.models.users import Organization, User
@@ -224,6 +226,27 @@ class CertificateService:
             aggregate_id=str(milestone.id) if milestone else ""
         )
 
+        # 11. Enqueue Outbox Event for Notifications & Webhooks
+        event = DomainEvent.create(
+            event_type=DomainEventType.CERTIFICATE_ISSUED.value,
+            entity_type="impact_certificate",
+            entity_id=certificate.id,
+            organization_id=org.id if org else None,
+            actor_user_id=actor_id,
+            payload={
+                "certificate_id": certificate.id,
+                "certificate_number": certificate.certificate_number,
+                "verification_id": certificate.verification_id,
+                "verification_url": verification_url,
+                "recipient_name": resolved_recipient,
+                "donor_id": donation.donor_id if donation else None,
+                "donor_email": donation.donor_email if donation else None,
+                "project_title": project.title if project else "Project",
+                "impact_summary": claims.get("verification_summary", {}).get("impact_summary") or "Milestone completed with verified impact."
+            }
+        )
+        OutboxService.record_event(db, event)
+
         db.commit()
         db.refresh(certificate)
         return certificate
@@ -271,6 +294,21 @@ class CertificateService:
             },
             actor_id=actor_id
         )
+
+        event = DomainEvent.create(
+            event_type=DomainEventType.CERTIFICATE_SUSPENDED.value,
+            entity_type="impact_certificate",
+            entity_id=cert.id,
+            organization_id=cert.organization_id,
+            actor_user_id=actor_id,
+            payload={
+                "certificate_id": cert.id,
+                "certificate_number": cert.certificate_number,
+                "reason_code": reason_code,
+                "reason_description": reason_description
+            }
+        )
+        OutboxService.record_event(db, event)
 
         db.commit()
         db.refresh(cert)
@@ -321,6 +359,22 @@ class CertificateService:
             },
             actor_id=actor_id
         )
+
+        event = DomainEvent.create(
+            event_type=DomainEventType.CERTIFICATE_REVOKED.value,
+            entity_type="impact_certificate",
+            entity_id=cert.id,
+            organization_id=cert.organization_id,
+            actor_user_id=actor_id,
+            payload={
+                "certificate_id": cert.id,
+                "certificate_number": cert.certificate_number,
+                "reason_code": reason_code,
+                "reason_description": reason_description,
+                "revoked_at": cert.revoked_at.isoformat()
+            }
+        )
+        OutboxService.record_event(db, event)
 
         db.commit()
         db.refresh(cert)

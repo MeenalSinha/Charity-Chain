@@ -3,7 +3,7 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.40+-FF4B4B.svg)](https://streamlit.io/)
-[![Tests](https://img.shields.io/badge/tests-306%2F306%20passing-brightgreen.svg)](docs/PHASE_9_TEST_REPORT.md)
+[![Tests](https://img.shields.io/badge/tests-337%2F337%20passing-brightgreen.svg)](docs/PHASE_10_TEST_REPORT.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 > **Give with Evidence. Release with Confidence.**
@@ -136,11 +136,11 @@ CharityChain includes a comprehensive test suite across unit, integration, funct
 pytest -v tests/
 ```
 
-**Test Results: 263 passed out of 263 tests across 80 test files (100% pass rate):**
-- **Unit Tests (100% passing)**: Fund allocation, double-entry ledger balancing, payout recipient encryption, 9-gate disbursement eligibility, currency math, AI forensics, state machines.
-- **Integration Tests (100% passing)**: Milestone disbursement workflow, payout batch processing, automated three-way financial reconciliation, payout webhook processing, payment captures, refunds.
-- **Security Tests (100% passing)**: Maker-Checker segregation, duplicate payout prevention, ledger immutability, payment IDOR protection, encryption at rest.
-- **Functional E2E Tests (100% passing)**: Complete disbursement and review lifecycles, UI status rendering, platform analytics.
+**Test Results: 337 passed out of 337 tests across 102 test files (100% pass rate):**
+- **Unit Tests (100% passing)**: Domain events, SSRF protection, HMAC signing, email templates, outbox backoff, fund allocation, ledger balancing, AI forensics, state machines.
+- **Integration Tests (100% passing)**: Notification worker outbox loops, in-app notification center, webhook subscriptions, milestone payouts, financial reconciliation, payment captures, refunds.
+- **Security Tests (100% passing)**: Multi-tenant IDOR notification isolation, webhook cross-tenant defense, Maker-Checker segregation, ledger immutability, encryption at rest.
+- **Functional E2E Tests (100% passing)**: Multi-channel donation receipts, certificate issuance -> HMAC webhook dispatch, disbursement flows, review workflows.
 
 ---
 

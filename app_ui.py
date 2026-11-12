@@ -54,6 +54,13 @@ from backend.app.services.ledger_service import LedgerService
 from backend.app.services.disbursement_eligibility_service import DisbursementEligibilityService
 from backend.app.services.disbursement_service import DisbursementService
 from backend.app.services.reconciliation_service import ReconciliationService
+from backend.app.services.notification_service import NotificationService
+from backend.app.services.webhook_subscription_service import WebhookSubscriptionService
+from backend.app.services.certificate_service import CertificateService
+from backend.app.db.models.notifications import (
+    Notification, NotificationPreference, WebhookSubscription, WebhookDelivery
+)
+from backend.app.core.constants import NotificationCategory, DomainEventType
 from backend.app.db.models.financial import (
     Disbursement, PayoutRecipient, PayoutBatch, PayoutApproval,
     ReconciliationRun, ReconciliationItem, SettlementRecord
@@ -2381,6 +2388,231 @@ def page_certificates():
 
 
 # ============================================================================
+# PAGE: NOTIFICATIONS & WEBHOOKS (PHASE 10)
+# ============================================================================
+
+def page_notifications_and_webhooks():
+    """Interactive Notification Center, Communication Preferences, and Webhook Subscriptions."""
+    st.header("🔔 Notifications, Webhooks & Communications")
+    st.markdown("Multi-channel transactional notifications, donor & NGO preference management, and HMAC-signed outbound webhooks.")
+
+    user_id, role, full_name, email = get_current_user_info()
+
+    with SessionFactory() as db:
+        # Fallback for guest/demo browsing: select first user in system if not logged in
+        effective_user_id = user_id
+        if not effective_user_id:
+            from backend.app.db.models.users import User
+            sample_user = db.query(User).first()
+            if sample_user:
+                effective_user_id = sample_user.id
+                st.info(f"Viewing as demo user: **{sample_user.full_name or sample_user.email}** ({sample_user.role.value if hasattr(sample_user.role, 'value') else sample_user.role})")
+            else:
+                st.warning("Please sign in or register to access notifications.")
+                return
+
+        tab_inbox, tab_preferences, tab_webhooks = st.tabs([
+            "📥 Notification Center",
+            "⚙️ Communication Preferences",
+            "🔗 Outbound Webhooks (NGO / Admin)"
+        ])
+
+        # --------------------------------------------------------------------
+        # TAB 1: NOTIFICATION CENTER
+        # --------------------------------------------------------------------
+        with tab_inbox:
+            unread_count = NotificationService.get_unread_count(db, effective_user_id)
+            c1, c2, c3 = st.columns([2, 1, 1])
+            with c1:
+                st.subheader(f"Your Notifications ({unread_count} unread)")
+            with c2:
+                show_unread = st.checkbox("Unread only", value=False, key="notif_unread_only")
+            with c3:
+                if st.button("Mark All Read", key="btn_mark_all_read"):
+                    updated = NotificationService.mark_all_as_read(db, effective_user_id)
+                    st.success(f"Marked {updated} notifications as read.")
+                    time.sleep(0.5)
+                    st.rerun()
+
+            notifications, total = NotificationService.list_notifications(
+                db, user_id=effective_user_id, unread_only=show_unread, page_size=25
+            )
+
+            if not notifications:
+                st.info("No notifications to display in this view.")
+            else:
+                for notif in notifications:
+                    card_icon = {
+                        "DONATIONS": "💰",
+                        "PAYMENTS": "💳",
+                        "PROJECTS": "📋",
+                        "MILESTONES": "🎯",
+                        "EVIDENCE": "📸",
+                        "VERIFICATION": "🤖",
+                        "REVIEWS": "🔍",
+                        "DISBURSEMENTS": "💸",
+                        "CERTIFICATES": "📜",
+                        "SECURITY": "🔒"
+                    }.get(notif.category.value if hasattr(notif.category, 'value') else str(notif.category), "🔔")
+
+                    status_badge = "🔵 **UNREAD**" if not notif.is_read else "⚪ Read"
+                    with st.expander(f"{card_icon} {notif.title} — {status_badge} ({notif.created_at.strftime('%Y-%m-%d %H:%M') if notif.created_at else 'Recent'})", expanded=not notif.is_read):
+                        st.write(notif.message)
+                        if notif.action_url:
+                            st.markdown(f"[View Related Record]({notif.action_url})")
+
+                        btn_col1, btn_col2, _ = st.columns([1, 1, 4])
+                        with btn_col1:
+                            if not notif.is_read:
+                                if st.button("Mark Read", key=f"read_{notif.id}"):
+                                    NotificationService.mark_as_read(db, effective_user_id, notif.id)
+                                    st.rerun()
+                        with btn_col2:
+                            if st.button("Archive", key=f"arch_{notif.id}"):
+                                NotificationService.archive_notification(db, effective_user_id, notif.id)
+                                st.rerun()
+
+        # --------------------------------------------------------------------
+        # TAB 2: COMMUNICATION PREFERENCES
+        # --------------------------------------------------------------------
+        with tab_preferences:
+            st.subheader("Manage How and When CharityChain Contacts You")
+            prefs = NotificationService.get_or_create_preferences(db, effective_user_id)
+
+            st.markdown("#### Delivery Channels")
+            ch_col1, ch_col2 = st.columns(2)
+            with ch_col1:
+                email_en = st.toggle("Email Notifications", value=prefs.email_enabled, key="pref_email_en")
+            with ch_col2:
+                inapp_en = st.toggle("In-App Notification Center", value=prefs.in_app_enabled, key="pref_inapp_en")
+
+            st.markdown("---")
+            st.markdown("#### Notification Topics")
+            top_col1, top_col2 = st.columns(2)
+            with top_col1:
+                don_up = st.checkbox("Donations & Payment Receipts", value=prefs.donation_updates, key="pref_don")
+                proj_up = st.checkbox("Project Updates & Announcements", value=prefs.project_updates, key="pref_proj")
+                mile_up = st.checkbox("Milestone Status Changes", value=prefs.milestone_updates, key="pref_mile")
+            with top_col2:
+                verif_up = st.checkbox("AI Evidence Verification Findings", value=prefs.verification_updates, key="pref_verif")
+                cert_up = st.checkbox("Impact Certificate Issuance & Revocation", value=prefs.certificate_notifications, key="pref_cert")
+                st.checkbox("Security Alerts & Account Actions", value=True, disabled=True, help="Security and critical governance alerts cannot be disabled.", key="pref_sec")
+
+            if st.button("💾 Save Communication Preferences", key="btn_save_prefs"):
+                try:
+                    NotificationService.update_preferences(
+                        db,
+                        user_id=effective_user_id,
+                        preferences_data={
+                            "email_enabled": email_en,
+                            "in_app_enabled": inapp_en,
+                            "donation_updates": don_up,
+                            "project_updates": proj_up,
+                            "milestone_updates": mile_up,
+                            "verification_updates": verif_up,
+                            "certificate_notifications": cert_up
+                        }
+                    )
+                    st.success("Communication preferences saved successfully!")
+                except Exception as e:
+                    st.error(f"Failed to update preferences: {e}")
+
+        # --------------------------------------------------------------------
+        # TAB 3: OUTBOUND WEBHOOK SUBSCRIPTIONS
+        # --------------------------------------------------------------------
+        with tab_webhooks:
+            st.subheader("Automate External Systems via Cryptographically Signed Webhooks")
+            st.markdown("CharityChain signs every outbound HTTP POST request with HMAC-SHA256 in the `CharityChain-Signature` header.")
+
+            # Form to register a new subscription
+            with st.expander("➕ Register New Webhook Endpoint", expanded=False):
+                endpoint_url = st.text_input(
+                    "Endpoint Target URL (HTTPS Required in Production)",
+                    placeholder="https://your-server.org/webhooks/charitychain",
+                    key="wh_url"
+                )
+                desc = st.text_input("Endpoint Description", placeholder="e.g. Production ERP sync", key="wh_desc")
+
+                event_options = [
+                    DomainEventType.DONATION_CREATED.value,
+                    DomainEventType.PAYMENT_CAPTURED.value,
+                    DomainEventType.PAYMENT_REFUNDED.value,
+                    DomainEventType.EVIDENCE_SUBMITTED.value,
+                    DomainEventType.AI_VERIFICATION_COMPLETED.value,
+                    DomainEventType.REVIEW_APPROVED.value,
+                    DomainEventType.DUAL_KEY_APPROVAL_COMPLETED.value,
+                    DomainEventType.DISBURSEMENT_COMPLETED.value,
+                    DomainEventType.DISBURSEMENT_FAILED.value,
+                    DomainEventType.CERTIFICATE_ISSUED.value,
+                    DomainEventType.CERTIFICATE_REVOKED.value
+                ]
+                selected_events = st.multiselect(
+                    "Subscribed Event Types (or select all)",
+                    options=event_options,
+                    default=[DomainEventType.PAYMENT_CAPTURED.value, DomainEventType.CERTIFICATE_ISSUED.value],
+                    key="wh_events"
+                )
+
+                if st.button("Register Webhook", key="btn_create_wh"):
+                    if not endpoint_url:
+                        st.error("Please enter a destination URL.")
+                    else:
+                        try:
+                            sub, plaintext_secret = WebhookSubscriptionService.create_subscription(
+                                db=db,
+                                created_by_user_id=effective_user_id,
+                                endpoint_url=endpoint_url.strip(),
+                                description=desc.strip() if desc else None,
+                                subscribed_events=selected_events or ["*"]
+                            )
+                            st.success(f"Webhook subscription '{sub.id}' registered successfully!")
+                            st.warning(
+                                f"⚠️ **HMAC Secret Key:** `{plaintext_secret}`\n\n"
+                                "**Important:** Copy this signing secret now. For security purposes, it will never be displayed again."
+                            )
+                        except Exception as e:
+                            st.error(f"Failed to register webhook: {e}")
+
+            # List existing subscriptions
+            st.markdown("#### Configured Webhook Subscriptions")
+            subs = WebhookSubscriptionService.list_subscriptions(
+                db=db, created_by_user_id=effective_user_id if role != "ADMIN" else None
+            )
+
+            if not subs:
+                st.info("No active webhook subscriptions configured.")
+            else:
+                for sub in subs:
+                    with st.container():
+                        sc1, sc2, sc3 = st.columns([3, 1, 2])
+                        with sc1:
+                            st.markdown(f"**URL:** `{sub.endpoint_url}`")
+                            st.caption(f"ID: `{sub.id}` | Events: `{', '.join(sub.subscribed_events or ['*'])}`")
+                        with sc2:
+                            stat_color = "green" if sub.status.value == "ACTIVE" else "red"
+                            st.markdown(f"Status: :{stat_color}[**{sub.status.value}**]")
+                            st.caption(f"Failures: {sub.consecutive_failures}")
+                        with sc3:
+                            act_c1, act_c2 = st.columns(2)
+                            with act_c1:
+                                if st.button("Rotate Key", key=f"rot_{sub.id}"):
+                                    try:
+                                        new_secret = WebhookSubscriptionService.rotate_secret(db, sub.id, requesting_user_id=effective_user_id)
+                                        st.warning(f"New Secret: `{new_secret}` (Copy now!)")
+                                    except Exception as e:
+                                        st.error(str(e))
+                            with act_c2:
+                                if st.button("Delete", key=f"del_{sub.id}"):
+                                    try:
+                                        WebhookSubscriptionService.delete_subscription(db, sub.id, requesting_user_id=effective_user_id)
+                                        st.success("Deleted.")
+                                        st.rerun()
+                                    except Exception as e:
+                                        st.error(str(e))
+                        st.markdown("---")
+
+
+# ============================================================================
 # MAIN ROUTING
 # ============================================================================
 
@@ -2429,9 +2661,10 @@ def main():
             "Submit Evidence",
             "Analytics",
             "Impact Map",
-            "Certificates"
+            "Certificates",
+            "Notifications & Webhooks"
         ]
-        
+
         page = st.radio(
             "Navigation",
             nav_options,
@@ -2476,6 +2709,8 @@ def main():
             folium_static(m, width=1200, height=600)
     elif page == "Certificates":
         page_certificates()
+    elif page == "Notifications & Webhooks":
+        page_notifications_and_webhooks()
 
 if __name__ == "__main__":
     try:

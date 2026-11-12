@@ -110,3 +110,20 @@ def db_session(tmp_path):
         test_engine.dispose()
         app.dependency_overrides.pop(get_db_session, None)
         app.dependency_overrides.pop(get_db, None)
+
+
+@pytest.fixture(autouse=True)
+def mock_dns_for_offline_tests(monkeypatch):
+    """Ensures test domain names resolve to a dummy public IP without internet access."""
+    import socket
+    real_getaddrinfo = socket.getaddrinfo
+
+    def mocked_getaddrinfo(host, port, *args, **kwargs):
+        if host in ("localhost", "127.0.0.1", "::1"):
+            return real_getaddrinfo(host, port, *args, **kwargs)
+        try:
+            return real_getaddrinfo(host, port, *args, **kwargs)
+        except (socket.gaierror, OSError):
+            return [(socket.AF_INET, socket.SOCK_STREAM, 6, '', ('93.184.216.34', port or 0))]
+
+    monkeypatch.setattr(socket, "getaddrinfo", mocked_getaddrinfo)

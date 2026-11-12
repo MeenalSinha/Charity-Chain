@@ -62,3 +62,17 @@ class PayoutProviderInterface(ABC):
         """Cancels an unclaimed payout item and returns funds to sender balance."""
         pass
 
+    @abstractmethod
+    def verify_webhook_signature(
+        self,
+        headers: Dict[str, str],
+        raw_body: bytes,
+        webhook_id: Optional[str] = None
+    ) -> bool:
+        """
+        Cryptographically validates incoming payout webhook signatures against PayPal API or provider spec.
+        Returns True if signature is valid, False otherwise.
+        """
+        pass
+
+

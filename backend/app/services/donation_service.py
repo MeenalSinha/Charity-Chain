@@ -22,9 +22,11 @@ from backend.app.core.constants import (
     DonationStatus, PaymentOrderStatus, PaymentCaptureStatus,
     PaymentRefundStatus, ProjectStatus, MilestoneStatus,
     OrganizationStatus, ProjectVisibility, WebhookProcessingStatus,
-    WebhookSignatureStatus, PlatformRole
+    WebhookSignatureStatus, PlatformRole, DomainEventType
 )
 from backend.app.core.currency import Money
+from backend.app.core.events import DomainEvent
+from backend.app.services.outbox_service import OutboxService
 from backend.app.core.exceptions import (
     ValidationException, NotFoundException, ForbiddenException,
     ConflictException
@@ -373,6 +375,29 @@ class DonationService:
             })
         )
         db.add(audit_event)
+
+        # 11. Enqueue Transactional Outbox Event for Notifications & Webhooks
+        event = DomainEvent.create(
+            event_type=DomainEventType.PAYMENT_CAPTURED.value,
+            entity_type="payment_capture",
+            entity_id=payment_capture.id,
+            organization_id=project.organization_id if project else None,
+            actor_user_id=user_id or donation.donor_id,
+            payload={
+                "donation_id": donation.id,
+                "donor_id": donation.donor_id,
+                "donor_email": donation.donor_email,
+                "donor_name": donation.donor_name,
+                "project_id": donation.project_id,
+                "project_title": project.title if project else "Project",
+                "milestone_id": donation.milestone_id,
+                "amount_minor_units": order.amount_minor_units,
+                "currency": order.currency,
+                "provider_capture_id": payment_capture.provider_capture_id
+            }
+        )
+        OutboxService.record_event(db, event)
+
         db.commit()
         db.refresh(payment_capture)
 
@@ -571,6 +596,26 @@ class DonationService:
             })
         )
         db.add(audit)
+
+        # 8. Enqueue Transactional Outbox Event for Notifications & Webhooks
+        event = DomainEvent.create(
+            event_type=DomainEventType.PAYMENT_REFUNDED.value,
+            entity_type="payment_refund",
+            entity_id=refund_record.id,
+            organization_id=project.organization_id if project else None,
+            actor_user_id=actor_id,
+            payload={
+                "donation_id": donation.id,
+                "donor_id": donation.donor_id,
+                "donor_email": donation.donor_email,
+                "refund_id": refund_record.id,
+                "amount_minor_units": amount_minor_units,
+                "currency": donation.currency,
+                "reason": reason
+            }
+        )
+        OutboxService.record_event(db, event)
+
         db.commit()
         db.refresh(refund_record)
 

@@ -17,6 +17,8 @@ from sqlalchemy import select
 
 from backend.app.api.schemas import StandardResponse
 from backend.app.core.constants import WebhookProcessingStatus, WebhookSignatureStatus
+from backend.app.core.exceptions import ValidationException
+from backend.app.integrations.payments.exceptions import WebhookVerificationFailedException
 from backend.app.core.logging import get_logger
 from backend.app.db.session import get_db
 from backend.app.db.models.financial import WebhookEvent
@@ -34,62 +36,36 @@ async def receive_paypal_payout_webhook(
 ):
     """
     Ingests and reconciles outbound PayPal payout webhooks.
-    Deduplicates events and synchronizes item settlement states with double-entry ledger.
+    Cryptographically verifies signatures, deduplicates events, and synchronizes item settlement states.
     """
     try:
-        body_bytes = await request.body()
-        body_json = json.loads(body_bytes.decode("utf-8")) if body_bytes else {}
+        raw_body = await request.body()
     except Exception as exc:
-        logger.error("Failed to parse PayPal payout webhook JSON payload", exc_info=True)
-        raise HTTPException(status_code=400, detail="Malformed JSON payload")
+        logger.error("Failed to read payout webhook request body", exc_info=True)
+        raise HTTPException(status_code=400, detail="Malformed request body")
 
-    event_id = body_json.get("id")
-    event_type = body_json.get("event_type", "UNKNOWN")
-    resource = body_json.get("resource", {})
-
-    if not event_id:
-        raise HTTPException(status_code=400, detail="Missing required event 'id' in webhook payload")
-
-    # Deduplication check
-    existing = db.execute(select(WebhookEvent).where(WebhookEvent.event_id == event_id)).scalar_one_or_none()
-    if existing and existing.processing_status == WebhookProcessingStatus.PROCESSED:
-        logger.info(f"Duplicate payout webhook event ignored: {event_id}")
-        return StandardResponse(data={"status": "DUPLICATE", "event_id": event_id}, message="Event already processed")
-
-    now = datetime.now(timezone.utc)
-    if not existing:
-        event_record = WebhookEvent(
-            id=str(uuid.uuid4()),
-            provider="PAYPAL_PAYOUTS",
-            event_id=event_id,
-            event_type=event_type,
-            resource_id=resource.get("payout_item_id") or resource.get("batch_header", {}).get("payout_batch_id"),
-            resource_type=body_json.get("resource_type", "payout"),
-            signature_verification_status=WebhookSignatureStatus.VERIFIED,
-            processing_status=WebhookProcessingStatus.PENDING,
-            payload=json.dumps(body_json)
-        )
-        db.add(event_record)
-        db.flush()
-    else:
-        event_record = existing
+    headers = dict(request.headers)
 
     try:
-        result = disbursement_service.process_payout_webhook_event(
+        result = disbursement_service.process_paypal_payout_webhook(
             db=db,
-            event_type=event_type,
-            resource=resource
+            headers=headers,
+            raw_body=raw_body
         )
-        event_record.processing_status = WebhookProcessingStatus.PROCESSED
-        event_record.processed_at = now
-        db.commit()
         return StandardResponse(data=result, message="Webhook processed successfully")
+    except WebhookVerificationFailedException as exc:
+        logger.warning(f"Rejected unverified PayPal payout webhook: {exc.message}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Webhook signature verification failed"
+        )
+    except ValidationException as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     except Exception as exc:
-        db.rollback()
-        event_record.processing_status = WebhookProcessingStatus.FAILED
-        event_record.failure_reason = str(exc)
-        event_record.retry_count = (event_record.retry_count or 0) + 1
-        db.commit()
-        logger.error(f"Error processing payout webhook event {event_id}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Payout webhook processing failed: {str(exc)}")
+        logger.error(f"Error processing PayPal payout webhook: {str(exc)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Payout webhook processing failed: {str(exc)}"
+        )
+
 

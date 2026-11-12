@@ -160,3 +160,20 @@ class MockPayoutProvider(PayoutProviderInterface):
         self.items[payout_item_id]["transaction_status"] = "CANCELED"
         return {"payout_item_id": payout_item_id, "status": "CANCELED"}
 
+    def verify_webhook_signature(
+        self,
+        headers: Dict[str, str],
+        raw_body: bytes,
+        webhook_id: Optional[str] = None
+    ) -> bool:
+        normalized = {k.lower(): v for k, v in headers.items()}
+        if getattr(self, "simulate_webhook_sig_failure", False):
+            return False
+        if "paypal-transmission-sig" in normalized:
+            return normalized.get("paypal-transmission-sig") != "INVALID_SIGNATURE"
+        if "paypal-mock-sig" in normalized:
+            return normalized.get("paypal-mock-sig") == "valid"
+        # By default in test mock, if headers are provided and not invalid, accept
+        return bool(headers)
+
+

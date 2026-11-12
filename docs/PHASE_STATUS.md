@@ -196,6 +196,27 @@
 | **9.11** | Streamlit Multi-Workspace UI Integration | **COMPLETED** | Added interactive Impact Certificates & Ledger workspace to `app_ui.py` supporting public QR scan landing, certificate issuance, PDF downloads, and ledger chain integrity audits. |
 | **9.12** | Comprehensive Automated Testing (306 Tests Passing) | **COMPLETED** | Authored 12 new test files adding 43 tests (unit, integration, security, functional). All 306 tests passing in 107.45s across 92 test files with 100% pass rate. |
 
+---
+
+## Phase 10: Notifications, Webhooks & Communications (Production-Grade Transactional Communication Infrastructure)
+
+| Task ID | Task Description | Status | Verification Note |
+|:---:|:---|:---:|:---|
+| **10.1** | Pre-Phase 10 Audit & Inbound Webhook Hardening | **COMPLETED** | Verified all Phase 9 features. Remediated critical security gap in inbound PayPal payout webhook signature validation in `DisbursementService`. Full 308/308 baseline tests passed. Documented in `docs/PRE_PHASE_10_VERIFICATION_REPORT.md`. |
+| **10.2** | Transactional Event Outbox Core & Retry Engine | **COMPLETED** | Implemented `NotificationOutbox` model and `OutboxService` with exponential backoff, full random jitter, idempotency keys, and transitions to `DEAD_LETTER`. |
+| **10.3** | Canonical Domain Events & RFC 8785 Serialization | **COMPLETED** | Implemented `DomainEvent` with deterministic UTF-8 key sorting and recursive PII/credential sanitization (stripping passwords, tokens, API keys, and authorization data). |
+| **10.4** | In-App Notification Center & User Preferences | **COMPLETED** | Implemented `NotificationService` supporting real-time unread badges, paginated inbox listing, IDOR-safe mark-read/archive states, and immutable security alert preferences. |
+| **10.5** | Production Transactional Email Architecture | **COMPLETED** | Implemented `SMTPNotificationProvider` (supporting STARTTLS, SSL, authentication, and timeouts) and `DevNotificationSink` (with fail-closed production protection). Configured via `NotificationProviderFactory`. |
+| **10.6** | Responsive HTML Email Template Engine | **COMPLETED** | Implemented `EmailTemplateService` with mobile-first 600px layout, strict `html.escape` XSS neutralization, plain-text fallback generation, and branded templates for receipts, certificates, reviews, and payouts. |
+| **10.7** | Zero-Trust SSRF Protection Engine | **COMPLETED** | Implemented `validate_webhook_url` blocking private RFC 1918 subnets, IPv4/IPv6 loopback, cloud metadata (`169.254.169.254`), dangerous service ports, and non-HTTPS protocols in production with pre-dispatch anti-DNS rebinding checks. |
+| **10.8** | Outbound Webhook Subscriptions & Cryptography | **COMPLETED** | Implemented `WebhookSubscriptionService` and `WebhookDeliveryService` featuring Fernet AES-256 secret encryption at rest, single-disclosure creation, secret rotation, and HMAC-SHA256 request signing (`CharityChain-Signature: t=...,v1=...`). |
+| **10.9** | Database Models & Alembic Migration 010 | **COMPLETED** | Created 9 relational models in `backend/app/db/models/notifications.py` and reversible Alembic migration `010_phase10_notifications_and_webhooks.py`. |
+| **10.10** | Domain Service Event Hook Integration | **COMPLETED** | Enqueued transactional outbox events across `DonationService` (`payment.captured`, `payment.refunded`), `CertificateService` (`certificate.issued`, `certificate.suspended`, `certificate.revoked`), and `DisbursementService` (`disbursement.completed`, `disbursement.failed`). |
+| **10.11** | Administrative CLI Worker Runner | **COMPLETED** | Added `run-notification-worker` command to `backend/app/cli.py` with `--poll-interval`, `--batch-size`, and `--once` execution options. |
+| **10.12** | Streamlit Notification & Webhook UI Workspaces | **COMPLETED** | Added dedicated **Notifications & Webhooks** navigation item and interactive page with tabs for Notification Center, Communication Preferences, and Outbound Webhooks. |
+| **10.13** | Comprehensive Automated Testing (337 Tests Passing) | **COMPLETED** | Authored 10 test suites adding 29 Phase 10 tests across unit, integration, security, and functional layers. All 337 tests passing in 104s with 100% pass rate. |
+
+
 
 
 
