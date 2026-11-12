@@ -78,5 +78,23 @@ This document maintains an accurate, truthful record of functionality that is cu
   - Public Proof-of-Impact certificates and NFT generation remain strictly deferred to Phase 9.
   - Direct external transactional email dispatch and external webhook callbacks remain strictly deferred to Phase 10.
 
+## 8. Fund Disbursement & Financial Reconciliation (Phase 8 Completed)
+- **Current Status**:
+  - Full milestone disbursement pipeline implemented with Maker-Checker segregation (Four-Eyes Principle: `requested_by_id != approver_id`).
+  - 9-gate automated eligibility verification (`DisbursementEligibilityService`) validates milestone review status, dispute status, escrow balances, and recipient verification.
+  - Payout recipient credentials protected at rest with Fernet AES-256 encryption, deterministic SHA-256 blind indexing (`destination_hash`), and masked presentation strings.
+  - Modular outbound payout architecture supporting `PayPalPayoutProvider` (PayPal Payouts API v1) and `MockPayoutProvider` for automated testing.
+  - Double-entry general ledger with complete Chart of Accounts, strict balance invariants ($\sum \text{Debits} == \sum \text{Credits}$), and append-only reversal mechanics.
+  - Three-way automated reconciliation engine classifying discrepancies by standardized taxonomy (`AMOUNT_MISMATCH`, `FEE_MISMATCH`, `STATUS_MISMATCH`, `MISSING_INTERNAL`, `MISSING_EXTERNAL`) with audited resolution workflows.
+  - Dedicated Financial Operations management interface integrated into Streamlit UI (`app_ui.py`).
+- **Operational & Regulatory Disclosures**:
+  - **PayPal Domestic Regulatory Restrictions**: In certain jurisdictions (e.g., PayPal India domestic personal payouts), domestic P2P/payout transfers require specialized merchant regulatory clearance. For local testing and restricted environments, the configurable `MockPayoutProvider` (`PAYOUT_PROVIDER="mock"`) provides high-fidelity simulation.
+  - **Banking & Wire Rail Integrations**: `BANK_TRANSFER` recipient methods are fully modeled with AES-256 encrypted routing/account fields and state tracking. Direct clearing via Fedwire/ACH/SEPA requires enterprise banking partner integration.
+- **Boundaries Preserved**:
+  - Public Proof-of-Impact certificates and cryptographic NFT generation remain strictly deferred to Phase 9.
+  - Direct external transactional email dispatch and donor notifications remain deferred to Phase 10.
+  - Public donor transparency dashboard and aggregated impact heatmaps remain deferred to Phase 11.
+
+
 
 

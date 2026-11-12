@@ -12,11 +12,12 @@ from sqlalchemy import select
 from backend.app.api.schemas import (
     StandardResponse, CapturePaymentRequest, CapturePaymentResponse
 )
-from backend.app.core.exceptions import NotFoundException
+from backend.app.core.constants import PlatformRole
+from backend.app.core.exceptions import NotFoundException, ForbiddenException
 from backend.app.core.permissions import get_current_user, get_optional_current_user
 from backend.app.db.session import get_db
 from backend.app.db.models.users import User
-from backend.app.db.models.financial import PaymentOrder, PaymentCapture
+from backend.app.db.models.financial import PaymentOrder, PaymentCapture, Donation
 from backend.app.services.donation_service import DonationService
 
 router = APIRouter(prefix="/payments", tags=["Payments"])
@@ -34,6 +35,28 @@ def capture_payment(
     Captures an approved PayPal order.
     Verifies gateway status before updating local records and funding aggregates.
     """
+    order = db.execute(
+        select(PaymentOrder).where(
+            (PaymentOrder.id == order_identifier) | (PaymentOrder.provider_order_id == order_identifier)
+        )
+    ).scalar_one_or_none()
+
+    if not order:
+        raise NotFoundException(f"Payment order '{order_identifier}' not found")
+
+    donation = db.execute(select(Donation).where(Donation.id == order.donation_id)).scalar_one_or_none()
+    if donation and donation.donor_id:
+        if not current_user:
+            raise ForbiddenException("Authentication required to capture this payment order")
+        is_owner = current_user.id == donation.donor_id
+        is_admin = current_user.role in (
+            PlatformRole.PLATFORM_ADMIN,
+            PlatformRole.FINANCE_OPERATOR,
+            PlatformRole.FINANCE_APPROVER
+        )
+        if not (is_owner or is_admin):
+            raise ForbiddenException("You do not have permission to capture this payment order")
+
     user_id = current_user.id if current_user else None
     idempotency_key = payload.idempotency_key if payload else None
 
@@ -53,6 +76,24 @@ def cancel_payment_order(
     db: Session = Depends(get_db)
 ):
     """Marks an unapproved payment order and donation as cancelled."""
+    order = db.execute(
+        select(PaymentOrder).where(
+            (PaymentOrder.id == order_identifier) | (PaymentOrder.provider_order_id == order_identifier)
+        )
+    ).scalar_one_or_none()
+
+    if not order:
+        raise NotFoundException(f"Payment order '{order_identifier}' not found")
+
+    donation = db.execute(select(Donation).where(Donation.id == order.donation_id)).scalar_one_or_none()
+    if donation and donation.donor_id:
+        if not current_user:
+            raise ForbiddenException("Authentication required to cancel this payment order")
+        is_owner = current_user.id == donation.donor_id
+        is_admin = current_user.role in (PlatformRole.PLATFORM_ADMIN, PlatformRole.FINANCE_OPERATOR)
+        if not (is_owner or is_admin):
+            raise ForbiddenException("You do not have permission to cancel this payment order")
+
     user_id = current_user.id if current_user else None
     res = donation_service.cancel_donation(
         db=db,
@@ -65,6 +106,7 @@ def cancel_payment_order(
 @router.get("/orders/{order_identifier}", response_model=StandardResponse)
 def get_payment_order(
     order_identifier: str,
+    current_user: Optional[User] = Depends(get_optional_current_user),
     db: Session = Depends(get_db)
 ):
     """Retrieves payment order details by internal ID or provider order ID."""
@@ -76,6 +118,20 @@ def get_payment_order(
 
     if not order:
         raise NotFoundException(f"Payment order '{order_identifier}' not found")
+
+    donation = db.execute(select(Donation).where(Donation.id == order.donation_id)).scalar_one_or_none()
+    if donation and donation.donor_id:
+        if not current_user:
+            raise ForbiddenException("Authentication required to view payment order details")
+        is_owner = current_user.id == donation.donor_id
+        is_staff = current_user.role in (
+            PlatformRole.PLATFORM_ADMIN,
+            PlatformRole.FINANCE_OPERATOR,
+            PlatformRole.FINANCE_APPROVER,
+            PlatformRole.FINANCE_AUDITOR
+        )
+        if not (is_owner or is_staff):
+            raise ForbiddenException("You do not have permission to view this payment order")
 
     capture = db.execute(select(PaymentCapture).where(PaymentCapture.order_id == order.id)).scalar_one_or_none()
 

@@ -317,12 +317,17 @@ class DonationService:
             except Exception:
                 pass
 
+        if not capture_id_val:
+            raise PaymentCaptureFailedException(
+                f"PayPal capture succeeded but no genuine provider capture ID was obtained for order {order.provider_order_id}"
+            )
+
         # 7. Persist PaymentCapture record
         now_utc = datetime.now(timezone.utc)
         payment_capture = PaymentCapture(
             id=str(uuid.uuid4()),
             order_id=order.id,
-            provider_capture_id=capture_id_val or f"CAP-{order.provider_order_id}",
+            provider_capture_id=capture_id_val,
             amount_minor_units=order.amount_minor_units,
             currency=order.currency,
             status=PaymentCaptureStatus.COMPLETED,
@@ -404,6 +409,11 @@ class DonationService:
         donation = db.execute(select(Donation).where(Donation.id == order.donation_id)).scalar_one_or_none()
         if not donation:
             raise NotFoundException("Associated donation record not found")
+
+        if donation.donor_id and user_id and donation.donor_id != user_id:
+            user = db.execute(select(User).where(User.id == user_id)).scalar_one_or_none()
+            if not user or user.platform_role != PlatformRole.PLATFORM_ADMIN:
+                raise ForbiddenException("Access denied: You do not have permission to cancel this donation order.")
 
         if donation.status == DonationStatus.PAID:
             raise ValidationException("Cannot cancel a completed donation. Request a refund instead.")
@@ -493,41 +503,55 @@ class DonationService:
             raise exc
 
         provider_refund_id = gateway_res.get("refund_id") or gateway_res.get("id")
+        if not provider_refund_id:
+            raise PaymentRefundFailedException(
+                f"PayPal refund processed but no genuine provider refund ID was returned for capture {capture.provider_capture_id}"
+            )
+
         now_utc = datetime.now(timezone.utc)
+        gateway_status = (gateway_res.get("status") or "COMPLETED").upper()
+
+        if gateway_status == "COMPLETED":
+            refund_status = PaymentRefundStatus.COMPLETED
+        elif gateway_status == "PENDING":
+            refund_status = PaymentRefundStatus.PENDING
+        else:
+            raise PaymentRefundFailedException(f"PayPal refund rejected with gateway status: {gateway_status}")
 
         # 4. Persist PaymentRefund record
         refund_record = PaymentRefund(
             id=str(uuid.uuid4()),
             capture_id=capture.id,
-            provider_refund_id=provider_refund_id or f"REF-{str(uuid.uuid4())[:8]}",
+            provider_refund_id=provider_refund_id,
             amount_minor_units=amount_minor_units,
             currency=donation.currency,
             reason=reason,
-            status=PaymentRefundStatus.COMPLETED,
+            status=refund_status,
             idempotency_key=idempotency_key,
-            refunded_at=now_utc
+            refunded_at=now_utc if refund_status == PaymentRefundStatus.COMPLETED else None
         )
         db.add(refund_record)
 
-        # 5. Update Capture and Donation status
-        new_total_refunded = already_refunded + amount_minor_units
-        if new_total_refunded >= capture.amount_minor_units:
-            capture.status = PaymentCaptureStatus.REFUNDED
-            StateMachineValidator.validate_donation_transition(donation.status, DonationStatus.REFUNDED)
-            donation.status = DonationStatus.REFUNDED
-        else:
-            capture.status = PaymentCaptureStatus.PARTIALLY_REFUNDED
-            StateMachineValidator.validate_donation_transition(donation.status, DonationStatus.PARTIALLY_REFUNDED)
-            donation.status = DonationStatus.PARTIALLY_REFUNDED
+        # 5. Update Capture, Donation, and net funding totals only when refund is COMPLETED
+        if refund_status == PaymentRefundStatus.COMPLETED:
+            new_total_refunded = already_refunded + amount_minor_units
+            if new_total_refunded >= capture.amount_minor_units:
+                capture.status = PaymentCaptureStatus.REFUNDED
+                StateMachineValidator.validate_donation_transition(donation.status, DonationStatus.REFUNDED)
+                donation.status = DonationStatus.REFUNDED
+            else:
+                capture.status = PaymentCaptureStatus.PARTIALLY_REFUNDED
+                StateMachineValidator.validate_donation_transition(donation.status, DonationStatus.PARTIALLY_REFUNDED)
+                donation.status = DonationStatus.PARTIALLY_REFUNDED
 
-        # 6. Adjust project and milestone net funding totals
-        project = db.execute(select(Project).where(Project.id == donation.project_id)).scalar_one_or_none()
-        milestone = db.execute(select(Milestone).where(Milestone.id == donation.milestone_id)).scalar_one_or_none()
+            # 6. Adjust project and milestone net funding totals
+            project = db.execute(select(Project).where(Project.id == donation.project_id)).scalar_one_or_none()
+            milestone = db.execute(select(Milestone).where(Milestone.id == donation.milestone_id)).scalar_one_or_none()
 
-        if milestone:
-            milestone.raised_amount_minor_units = max(0, (milestone.raised_amount_minor_units or 0) - amount_minor_units)
-        if project:
-            project.raised_amount_minor_units = max(0, (project.raised_amount_minor_units or 0) - amount_minor_units)
+            if milestone:
+                milestone.raised_amount_minor_units = max(0, (milestone.raised_amount_minor_units or 0) - amount_minor_units)
+            if project:
+                project.raised_amount_minor_units = max(0, (project.raised_amount_minor_units or 0) - amount_minor_units)
 
         # 7. Audit trail
         audit = AuditEvent(

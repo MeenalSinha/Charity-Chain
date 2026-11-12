@@ -11,7 +11,12 @@ from backend.app.db.models.users import (
 from backend.app.db.models.projects import ProjectCategory, Project, Milestone, ProjectLocation
 from backend.app.db.models.financial import (
     Donation, PaymentOrder, PaymentAuthorization, PaymentCapture,
-    PaymentRefund, WebhookEvent, Disbursement
+    PaymentRefund, WebhookEvent, Disbursement,
+    PayoutRecipient, PayoutBatch, PayoutApproval,
+    ReconciliationRun, ReconciliationItem, SettlementRecord, ProcessorFeeRecord
+)
+from backend.app.db.models.ledger import (
+    LedgerAccount, JournalEntry, JournalLine
 )
 from backend.app.db.models.evidence import (
     EvidenceFile, VerificationReport, VerificationCheckRecord,
@@ -46,6 +51,16 @@ __all__ = [
     "PaymentRefund",
     "WebhookEvent",
     "Disbursement",
+    "PayoutRecipient",
+    "PayoutBatch",
+    "PayoutApproval",
+    "ReconciliationRun",
+    "ReconciliationItem",
+    "SettlementRecord",
+    "ProcessorFeeRecord",
+    "LedgerAccount",
+    "JournalEntry",
+    "JournalLine",
     "EvidenceFile",
     "VerificationReport",
     "VerificationCheckRecord",

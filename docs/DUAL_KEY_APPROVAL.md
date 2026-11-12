@@ -62,3 +62,4 @@ Once a review decision is recorded:
 - It cannot be updated, edited, or retracted.
 - Subsequent calls to `/api/v1/reviews/tasks/{task_id}/decision` return `409 Conflict`.
 - If an adverse decision is successfully appealed, the original decision is marked `is_superseded = True` rather than deleted, preserving an audit trail of both the original and new outcomes.
+

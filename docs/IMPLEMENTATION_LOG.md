@@ -215,4 +215,22 @@
   - Integrated dedicated tabbed Reviewer Queue in Streamlit UI `app_ui.py` covering Organizations, Projects, Review Cases, Assigned Tasks, Formal Disputes, and Cryptographic Audit.
   - Added 37 automated tests across 6 test suites. Total test suite: 234 / 234 passed (100%) in 132.4s.
 
+## Phase 8: Fund Disbursement & Financial Reconciliation (Milestone-Based Fund Allocation, NGO Payouts, Double-Entry Accounting, Financial Ledger & Automated Reconciliation)
+- **Status**: COMPLETED
+- **Key Changes**:
+  - Conducted pre-Phase 8 verification; remediated legacy payment security vulnerabilities in `donation_service.py` by removing synthetic fallback IDs (`CAP-{order_id}`, `REF-{uuid}`) and raising hard exceptions; enforced `COMPLETED` gateway status verification; fixed IDOR gaps in `payments.py`. Authored `docs/PRE_PHASE_8_VERIFICATION_REPORT.md`.
+  - Implemented 10 new database models: `LedgerAccount`, `JournalEntry`, `JournalLine` in `backend/app/db/models/ledger.py` and `PayoutRecipient`, `PayoutBatch`, `PayoutApproval`, `ReconciliationRun`, `ReconciliationItem`, `SettlementRecord`, `ProcessorFeeRecord` in `backend/app/db/models/financial.py`.
+  - Created and verified Alembic migration `008_phase8_disbursement_and_financial_ledger.py` bidirectionally (`upgrade head` -> `downgrade -1` -> `upgrade head`).
+  - Implemented modular outbound payout framework in `backend/app/integrations/payouts/`: `BasePayoutProvider`, `PayPalPayoutProvider` (PayPal Payouts API v1 with OAuth2 token caching, batch headers, and webhook handling), `MockPayoutProvider` for testing, and `PayoutProviderFactory`.
+  - Implemented `PayoutRecipientService` providing Fernet AES-256 encryption at rest, deterministic SHA-256 blind indexing (`destination_hash`), and masked presentation strings.
+  - Implemented `FundAllocationService` enforcing zero floating-point math using 64-bit integer minor currency units (cents), milestone-level escrow segregation, and real-time available balance calculations.
+  - Implemented `LedgerService` with chart of accounts initialization, balanced journal entry posting ($\sum \text{Debits} == \sum \text{Credits}$), trial balances, balance sheets, and immutable reversal entries.
+  - Implemented `DisbursementEligibilityService` enforcing a 9-gate audit engine evaluating review approvals, open disputes, recipient verification, escrow balance ceilings, and project status.
+  - Implemented `DisbursementService` enforcing Maker-Checker segregation (`requested_by_id != approver_id`), multi-item `PayoutBatch` grouping, and asynchronous webhook synchronization.
+  - Implemented `ReconciliationService` executing three-way reconciliation across domain records, ledger journal entries, and external settlement feeds, classifying discrepancies by taxonomy and tracking audited human resolutions.
+  - Added Pydantic schemas in `backend/app/api/schemas.py` and mounted 5 REST routers in `backend/app/api/v1/router.py` (`/payout-recipients`, `/disbursements`, `/ledger`, `/reconciliation`, `/webhooks/payouts`), exposing 25 new endpoints.
+  - Enhanced Streamlit presentation layer in `app_ui.py` with `page_financial_operations()` featuring 5 operational workspaces: Maker-Checker Queue, Payout Batches, General Ledger & Trial Balance, Reconciliation, and Recipient Verification.
+  - Added 29 new automated tests across 13 test files covering unit, integration, security, and functional flows. Total test suite: **263 / 263 passed (100%)** in 128.45s with 0 failures and 0 errors.
+
+
 

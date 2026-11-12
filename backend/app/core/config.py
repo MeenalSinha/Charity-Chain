@@ -200,6 +200,14 @@ class Settings(BaseSettings):
     REVIEW_REQUIRE_EVIDENCE_INTEGRITY: bool = Field(default=True, description="Require SHA-256 evidence integrity check pass")
     REVIEW_POLICY_VERSION: str = Field(default="v7.0.0", description="Active human review policy version")
 
+    # 9. Payouts & Financial Reconciliation (Phase 8)
+    PAYOUT_PROVIDER: Literal["paypal", "mock"] = Field(default="paypal", description="Outbound payout provider")
+    PAYPAL_PAYOUTS_WEBHOOK_ID: Optional[str] = Field(default=None, description="PayPal Payouts Webhook ID")
+    ENCRYPTION_KEY: Optional[str] = Field(default=None, description="Fernet encryption key for sensitive recipient data at rest")
+    DISBURSEMENT_MAX_RETRY_COUNT: int = Field(default=3, description="Maximum retry count for failed disbursements")
+    DISBURSEMENT_RETRY_DELAY_SECONDS: int = Field(default=300, description="Delay in seconds before retrying failed disbursement")
+    RECONCILIATION_DEFAULT_WINDOW_HOURS: int = Field(default=24, description="Default lookback window for financial reconciliation in hours")
+
     @model_validator(mode="after")
     def validate_production_security(self):
         """Enforces that production deployments cannot use development secrets."""

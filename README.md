@@ -3,7 +3,7 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.40+-FF4B4B.svg)](https://streamlit.io/)
-[![Tests](https://img.shields.io/badge/tests-234%2F234%20passing-brightgreen.svg)](docs/PHASE_7_TEST_REPORT.md)
+[![Tests](https://img.shields.io/badge/tests-263%2F263%20passing-brightgreen.svg)](docs/PHASE_8_TEST_REPORT.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 > **Give with Evidence. Release with Confidence.**
@@ -136,11 +136,11 @@ CharityChain includes a comprehensive test suite across unit, integration, funct
 pytest -v tests/
 ```
 
-**Test Results: 50 passed out of 50 tests (100% pass rate):**
-- **Unit Tests (40 passed)**: Currency math & Banker's rounding, AI verifier non-fabrication, EXIF GPS Haversine calculation, TinyDB truthiness, relational models, state machines, Pydantic settings, exception hierarchy, security validation.
-- **Integration Tests (6 passed)**: End-to-end donation-to-verification workflow, FastAPI `/api/v1` routes, OpenAPI schema generation, database connectivity health.
-- **Security & Input Hardening (2 passed)**: Magic-bytes verification, upload limits, rate limiting, path traversal protection.
-- **Functional UI & Analytics (2 passed)**: UI status badge rendering and platform analytics calculations.
+**Test Results: 263 passed out of 263 tests across 80 test files (100% pass rate):**
+- **Unit Tests (100% passing)**: Fund allocation, double-entry ledger balancing, payout recipient encryption, 9-gate disbursement eligibility, currency math, AI forensics, state machines.
+- **Integration Tests (100% passing)**: Milestone disbursement workflow, payout batch processing, automated three-way financial reconciliation, payout webhook processing, payment captures, refunds.
+- **Security Tests (100% passing)**: Maker-Checker segregation, duplicate payout prevention, ledger immutability, payment IDOR protection, encryption at rest.
+- **Functional E2E Tests (100% passing)**: Complete disbursement and review lifecycles, UI status rendering, platform analytics.
 
 ---
 
@@ -219,6 +219,17 @@ For in-depth architectural and domain specifications, refer to the documents in 
 - [Phase 6 Completion Report](docs/PHASE_6_COMPLETION_REPORT.md)
 - [Phase 7 Completion Report](docs/PHASE_7_COMPLETION_REPORT.md)
 - [Phase 7 Test Report (234 Tests)](docs/PHASE_7_TEST_REPORT.md)
+- [Phase 8 Completion Report](docs/PHASE_8_COMPLETION_REPORT.md)
+- [Phase 8 Test Report (263 Tests)](docs/PHASE_8_TEST_REPORT.md)
+- [Financial Architecture & Systems](docs/FINANCIAL_ARCHITECTURE.md)
+- [Disbursement Workflow & Eligibility](docs/DISBURSEMENT_WORKFLOW.md)
+- [Payout Provider Integration](docs/PAYOUT_PROVIDER_INTEGRATION.md)
+- [Payout Recipient Management](docs/PAYOUT_RECIPIENT_MANAGEMENT.md)
+- [Double-Entry Ledger Specification](docs/DOUBLE_ENTRY_LEDGER.md)
+- [Fund Allocation Specification](docs/FUND_ALLOCATION.md)
+- [Automated Financial Reconciliation](docs/FINANCIAL_RECONCILIATION.md)
+- [Financial Security & Controls](docs/FINANCIAL_SECURITY.md)
+- [Phase 8 Database Changes](docs/PHASE_8_DATABASE_CHANGES.md)
 - [Human Review Workflows Specification](docs/REVIEW_WORKFLOW.md)
 - [Reviewer Governance & COI Rules](docs/REVIEWER_GOVERNANCE.md)
 - [Dual-Key Approval Architecture](docs/DUAL_KEY_APPROVAL.md)

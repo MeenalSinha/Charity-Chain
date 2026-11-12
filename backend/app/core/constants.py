@@ -19,6 +19,9 @@ class PlatformRole(str, Enum):
     DONOR = "DONOR"
     REVIEWER = "REVIEWER"
     PLATFORM_ADMIN = "PLATFORM_ADMIN"
+    FINANCE_OPERATOR = "FINANCE_OPERATOR"
+    FINANCE_APPROVER = "FINANCE_APPROVER"
+    FINANCE_AUDITOR = "FINANCE_AUDITOR"
 
 
 class OrganizationRole(str, Enum):
@@ -250,11 +253,109 @@ class PaymentRefundStatus(str, Enum):
 
 
 class DisbursementStatus(str, Enum):
-    SCHEDULED = "SCHEDULED"
+    """Lifecycle states for milestone-based outbound payouts."""
+    REQUESTED = "REQUESTED"
+    PENDING_APPROVAL = "PENDING_APPROVAL"
+    APPROVED = "APPROVED"
+    SUBMISSION_PENDING = "SUBMISSION_PENDING"
+    SUBMITTED = "SUBMITTED"
     PROCESSING = "PROCESSING"
     SUCCEEDED = "SUCCEEDED"
     FAILED = "FAILED"
+    HELD = "HELD"
+    UNCLAIMED = "UNCLAIMED"
+    RETURNED = "RETURNED"
     CANCELLED = "CANCELLED"
+    REVERSED = "REVERSED"
+    # Legacy alias
+    SCHEDULED = "SCHEDULED"
+
+
+PayoutStatus = DisbursementStatus
+
+
+class PayoutRecipientStatus(str, Enum):
+    """Verification and operational lifecycle of NGO payout destinations."""
+    NOT_CONFIGURED = "NOT_CONFIGURED"
+    PENDING_VERIFICATION = "PENDING_VERIFICATION"
+    UNDER_REVIEW = "UNDER_REVIEW"
+    VERIFIED = "VERIFIED"
+    REJECTED = "REJECTED"
+    SUSPENDED = "SUSPENDED"
+    INACTIVE = "INACTIVE"
+
+
+class RecipientType(str, Enum):
+    """Supported payout rail recipient types."""
+    PAYPAL_EMAIL = "PAYPAL_EMAIL"
+    BANK_ACCOUNT = "BANK_ACCOUNT"
+    UPI = "UPI"
+
+
+class DisbursementMethod(str, Enum):
+    """Outbound disbursement payment rails."""
+    PAYPAL_PAYOUTS = "PAYPAL_PAYOUTS"
+    BANK_TRANSFER = "BANK_TRANSFER"
+    CRYPTO = "CRYPTO"
+
+
+class LedgerAccountType(str, Enum):
+    """Core financial classification of double-entry ledger accounts."""
+    ASSET = "ASSET"
+    LIABILITY = "LIABILITY"
+    EQUITY = "EQUITY"
+    REVENUE = "REVENUE"
+    EXPENSE = "EXPENSE"
+
+
+class LedgerEntryType(str, Enum):
+    """Categorical business transaction types producing journal entries."""
+    DONATION_CAPTURE = "DONATION_CAPTURE"
+    PROCESSOR_FEE = "PROCESSOR_FEE"
+    DONATION_REFUND = "DONATION_REFUND"
+    PAYOUT_COMMITMENT = "PAYOUT_COMMITMENT"
+    PAYOUT_EXECUTION = "PAYOUT_EXECUTION"
+    PAYOUT_FAILURE_REVERSAL = "PAYOUT_FAILURE_REVERSAL"
+    PAYOUT_RETURN = "PAYOUT_RETURN"
+    SETTLEMENT_RECONCILIATION = "SETTLEMENT_RECONCILIATION"
+    MANUAL_ADJUSTMENT = "MANUAL_ADJUSTMENT"
+
+
+class ReconciliationRunStatus(str, Enum):
+    """Execution status of an automated reconciliation job."""
+    PENDING = "PENDING"
+    PROCESSING = "PROCESSING"
+    COMPLETED = "COMPLETED"
+    COMPLETED_WITH_DISCREPANCIES = "COMPLETED_WITH_DISCREPANCIES"
+    FAILED = "FAILED"
+
+
+class ReconciliationStatus(str, Enum):
+    """Reconciliation state of an individual transaction item."""
+    MATCHED = "MATCHED"
+    UNMATCHED = "UNMATCHED"
+    DISCREPANCY = "DISCREPANCY"
+    MANUALLY_RESOLVED = "MANUALLY_RESOLVED"
+    IGNORED = "IGNORED"
+
+
+class DiscrepancyType(str, Enum):
+    """Classification of financial reconciliation mismatches."""
+    AMOUNT_MISMATCH = "AMOUNT_MISMATCH"
+    STATUS_MISMATCH = "STATUS_MISMATCH"
+    MISSING_IN_LOCAL = "MISSING_IN_LOCAL"
+    MISSING_IN_GATEWAY = "MISSING_IN_GATEWAY"
+    FEE_MISMATCH = "FEE_MISMATCH"
+    CURRENCY_MISMATCH = "CURRENCY_MISMATCH"
+    TIMING_DIFFERENCE = "TIMING_DIFFERENCE"
+
+
+class DiscrepancyResolution(str, Enum):
+    """Resolution applied to an audited discrepancy."""
+    AUTO_ADJUSTED = "AUTO_ADJUSTED"
+    MANUALLY_RECONCILED = "MANUALLY_RECONCILED"
+    PENDING_INVESTIGATION = "PENDING_INVESTIGATION"
+    DISMISSED = "DISMISSED"
 
 
 class ReviewDecision(str, Enum):

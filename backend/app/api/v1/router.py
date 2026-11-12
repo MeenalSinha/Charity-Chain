@@ -25,6 +25,11 @@ from backend.app.api.v1.funding import router as funding_router
 from backend.app.api.v1.evidence import router as evidence_router
 from backend.app.api.v1.verification import router as verification_router
 from backend.app.api.v1.reviews import router as reviews_router
+from backend.app.api.v1.payout_recipients import router as recipients_router
+from backend.app.api.v1.disbursements import router as disbursements_router
+from backend.app.api.v1.ledger import router as ledger_router
+from backend.app.api.v1.reconciliation import router as reconciliation_router
+from backend.app.api.v1.webhooks_payouts import router as webhooks_payouts_router
 
 api_v1_router = APIRouter(prefix=settings.API_PREFIX)
 
@@ -44,6 +49,11 @@ api_v1_router.include_router(funding_router)
 api_v1_router.include_router(evidence_router)
 api_v1_router.include_router(verification_router)
 api_v1_router.include_router(reviews_router)
+api_v1_router.include_router(recipients_router)
+api_v1_router.include_router(disbursements_router)
+api_v1_router.include_router(ledger_router)
+api_v1_router.include_router(reconciliation_router)
+api_v1_router.include_router(webhooks_payouts_router)
 
 
 @api_v1_router.get(

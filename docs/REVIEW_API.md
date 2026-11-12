@@ -190,3 +190,4 @@ All endpoints require authentication via JWT Bearer token and enforce role-based
     "events": [...]
   }
   ```
+

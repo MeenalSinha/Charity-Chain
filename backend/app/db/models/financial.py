@@ -11,13 +11,17 @@ Maintains strict separation between:
 7. Actual NGO Payouts (Disbursement)
 """
 
+from datetime import datetime, timezone
 from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Text, Boolean, Enum as SQLEnum
 from sqlalchemy.orm import relationship
 from backend.app.db.base import Base
 from backend.app.core.constants import (
     PaymentOrderStatus, PaymentAuthorizationStatus,
     PaymentCaptureStatus, PaymentRefundStatus, DisbursementStatus,
-    DonationStatus, WebhookProcessingStatus, WebhookSignatureStatus
+    DonationStatus, WebhookProcessingStatus, WebhookSignatureStatus,
+    PayoutRecipientStatus, RecipientType, DisbursementMethod,
+    ReconciliationRunStatus, ReconciliationStatus, DiscrepancyType,
+    DiscrepancyResolution
 )
 
 
@@ -145,15 +149,183 @@ class WebhookEvent(Base):
     processed_at = Column(DateTime, nullable=True)
 
 
+class PayoutRecipient(Base):
+    """
+    Verified payout destination for an organization.
+    Stores destination details encrypted at rest using AES-GCM / Fernet, with a SHA-256 hash for deduplication.
+    """
+    __tablename__ = "payout_recipients"
+
+    organization_id = Column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    recipient_type = Column(SQLEnum(RecipientType), default=RecipientType.PAYPAL_EMAIL, nullable=False)
+    payout_method = Column(SQLEnum(DisbursementMethod), default=DisbursementMethod.PAYPAL_PAYOUTS, nullable=False)
+    encrypted_destination = Column(Text, nullable=False)
+    destination_masked = Column(String(128), nullable=False)
+    destination_hash = Column(String(64), nullable=False, index=True)
+    status = Column(SQLEnum(PayoutRecipientStatus), default=PayoutRecipientStatus.PENDING_VERIFICATION, nullable=False, index=True)
+    verification_notes = Column(Text, nullable=True)
+    verified_by_id = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    verified_at = Column(DateTime, nullable=True)
+    is_primary = Column(Boolean, default=False, nullable=False)
+
+    disbursements = relationship("Disbursement", back_populates="recipient")
+
+
+class PayoutBatch(Base):
+    """
+    Batched outbound payout submission sent to payment provider (e.g. PayPal Payouts).
+    Groups one or more approved milestone disbursements.
+    """
+    __tablename__ = "payout_batches"
+
+    batch_reference_id = Column(String(255), unique=True, nullable=False, index=True)
+    provider = Column(String(50), default="PAYPAL_PAYOUTS", nullable=False)
+    provider_batch_id = Column(String(255), unique=True, nullable=True, index=True)
+    status = Column(SQLEnum(DisbursementStatus), default=DisbursementStatus.REQUESTED, nullable=False, index=True)
+    currency = Column(String(3), default="USD", nullable=False)
+    total_items_count = Column(Integer, default=0, nullable=False)
+    total_amount_minor_units = Column(Integer, default=0, nullable=False)
+    total_fees_minor_units = Column(Integer, default=0, nullable=False)
+    submitted_by_id = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    submitted_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+    raw_response = Column(Text, nullable=True)
+
+    disbursements = relationship("Disbursement", back_populates="batch")
+
+
 class Disbursement(Base):
-    """Direct payout to NGO bank account/PayPal after milestone approval."""
+    """
+    Milestone-based outbound payout record.
+    Subject to strict eligibility, maker-checker financial authorization, and double-entry accounting.
+    """
     __tablename__ = "disbursements"
 
-    milestone_id = Column(String(36), ForeignKey("milestones.id", ondelete="CASCADE"), nullable=False)
-    organization_id = Column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    milestone_id = Column(String(36), ForeignKey("milestones.id", ondelete="CASCADE"), nullable=False, index=True)
+    organization_id = Column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    review_case_id = Column(String(36), ForeignKey("review_cases.id", ondelete="SET NULL"), nullable=True, index=True)
+    recipient_id = Column(String(36), ForeignKey("payout_recipients.id", ondelete="SET NULL"), nullable=True, index=True)
+    payout_batch_id = Column(String(36), ForeignKey("payout_batches.id", ondelete="SET NULL"), nullable=True, index=True)
+
+    provider = Column(String(50), default="PAYPAL_PAYOUTS", nullable=False)
+    provider_batch_id = Column(String(255), nullable=True, index=True)
+    provider_item_id = Column(String(255), nullable=True, index=True)
+    payout_item_id = Column(String(255), nullable=True)  # Legacy alias
+    idempotency_key = Column(String(255), unique=True, nullable=True, index=True)
+
     amount_minor_units = Column(Integer, nullable=False)
+    gross_amount_minor_units = Column(Integer, nullable=True)
+    provider_fee_minor_units = Column(Integer, default=0, nullable=False)
+    net_amount_minor_units = Column(Integer, nullable=True)
     currency = Column(String(3), nullable=False, default="USD")
-    status = Column(SQLEnum(DisbursementStatus), default=DisbursementStatus.SCHEDULED, nullable=False)
-    payout_batch_id = Column(String(255), nullable=True)
-    payout_item_id = Column(String(255), nullable=True)
+
+    status = Column(SQLEnum(DisbursementStatus), default=DisbursementStatus.REQUESTED, nullable=False, index=True)
+
+    requested_by_id = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    approved_by_id = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    requested_at = Column(DateTime, nullable=True)
+    approved_at = Column(DateTime, nullable=True)
+    submitted_at = Column(DateTime, nullable=True)
     disbursed_at = Column(DateTime, nullable=True)
+    failure_reason = Column(Text, nullable=True)
+
+    recipient = relationship("PayoutRecipient", back_populates="disbursements")
+    batch = relationship("PayoutBatch", back_populates="disbursements")
+    approvals = relationship("PayoutApproval", back_populates="disbursement", cascade="all, delete-orphan")
+
+
+class PayoutApproval(Base):
+    """
+    Immutable Maker-Checker authorization log for milestone payouts.
+    Records every approval or rejection action taken by authorized finance officers.
+    """
+    __tablename__ = "payout_approvals"
+
+    disbursement_id = Column(String(36), ForeignKey("disbursements.id", ondelete="CASCADE"), nullable=False, index=True)
+    action = Column(String(32), nullable=False)
+    actor_id = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=False)
+    actor_role = Column(String(32), nullable=False)
+    notes = Column(Text, nullable=True)
+    decided_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+    disbursement = relationship("Disbursement", back_populates="approvals")
+
+
+class ReconciliationRun(Base):
+    """
+    Automated or manual financial reconciliation session between local ledger and external gateway.
+    """
+    __tablename__ = "reconciliation_runs"
+
+    run_number = Column(String(64), unique=True, nullable=False, index=True)
+    provider = Column(String(50), default="PAYPAL", nullable=False)
+    period_start = Column(DateTime, nullable=False)
+    period_end = Column(DateTime, nullable=False)
+    status = Column(SQLEnum(ReconciliationRunStatus), default=ReconciliationRunStatus.PENDING, nullable=False, index=True)
+    total_records_analyzed = Column(Integer, default=0, nullable=False)
+    matched_count = Column(Integer, default=0, nullable=False)
+    discrepancy_count = Column(Integer, default=0, nullable=False)
+    total_local_minor_units = Column(Integer, default=0, nullable=False)
+    total_gateway_minor_units = Column(Integer, default=0, nullable=False)
+    executed_by_id = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    notes = Column(Text, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+
+    items = relationship("ReconciliationItem", back_populates="run", cascade="all, delete-orphan")
+
+
+class ReconciliationItem(Base):
+    """
+    Detailed audit item within a reconciliation run comparing local records with gateway records.
+    """
+    __tablename__ = "reconciliation_items"
+
+    reconciliation_run_id = Column(String(36), ForeignKey("reconciliation_runs.id", ondelete="CASCADE"), nullable=False, index=True)
+    item_type = Column(String(32), nullable=False)
+    reference_id = Column(String(255), nullable=True, index=True)
+    provider_transaction_id = Column(String(255), nullable=True, index=True)
+    local_amount_minor_units = Column(Integer, default=0, nullable=False)
+    gateway_amount_minor_units = Column(Integer, default=0, nullable=False)
+    local_status = Column(String(50), nullable=True)
+    gateway_status = Column(String(50), nullable=True)
+    reconciliation_status = Column(SQLEnum(ReconciliationStatus), default=ReconciliationStatus.MATCHED, nullable=False, index=True)
+    discrepancy_type = Column(SQLEnum(DiscrepancyType), nullable=True)
+    discrepancy_resolution = Column(SQLEnum(DiscrepancyResolution), nullable=True)
+    resolution_notes = Column(Text, nullable=True)
+    resolved_by_id = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    resolved_at = Column(DateTime, nullable=True)
+
+    run = relationship("ReconciliationRun", back_populates="items")
+
+
+class SettlementRecord(Base):
+    """
+    External settlement or payout report line ingested from payment gateway.
+    """
+    __tablename__ = "settlement_records"
+
+    provider = Column(String(50), default="PAYPAL", nullable=False)
+    settlement_batch_id = Column(String(255), nullable=True, index=True)
+    transaction_id = Column(String(255), unique=True, nullable=False, index=True)
+    transaction_type = Column(String(50), nullable=False)
+    gross_amount_minor_units = Column(Integer, nullable=False)
+    fee_amount_minor_units = Column(Integer, default=0, nullable=False)
+    net_amount_minor_units = Column(Integer, nullable=False)
+    currency = Column(String(3), default="USD", nullable=False)
+    settled_at = Column(DateTime, nullable=False)
+    raw_data = Column(Text, nullable=True)
+
+
+class ProcessorFeeRecord(Base):
+    """
+    Audited payment processor fees incurred during transaction processing.
+    """
+    __tablename__ = "processor_fee_records"
+
+    provider = Column(String(50), default="PAYPAL", nullable=False)
+    transaction_reference_id = Column(String(255), unique=True, nullable=False, index=True)
+    fee_type = Column(String(50), default="TRANSACTION", nullable=False)
+    fee_minor_units = Column(Integer, nullable=False)
+    currency = Column(String(3), default="USD", nullable=False)
+    assessed_at = Column(DateTime, nullable=False)
+    journal_entry_id = Column(String(36), ForeignKey("journal_entries.id", ondelete="SET NULL"), nullable=True)

@@ -1065,5 +1065,144 @@ class ReviewAuditTrailResponse(BaseModel):
     events: List[Dict[str, Any]]
 
 
+# -----------------------------------------------------------------------------
+# Phase 8: Payout Recipients, Disbursements, Ledger & Reconciliation Schemas
+# -----------------------------------------------------------------------------
+from backend.app.core.constants import (
+    PayoutRecipientStatus, RecipientType, DisbursementMethod, DisbursementStatus,
+    LedgerAccountType, LedgerEntryType, ReconciliationRunStatus, ReconciliationStatus,
+    DiscrepancyType, DiscrepancyResolution
+)
+
+
+class RecipientCreateRequest(BaseModel):
+    organization_id: str
+    destination: str
+    recipient_type: Optional[RecipientType] = RecipientType.PAYPAL_EMAIL
+    payout_method: Optional[DisbursementMethod] = DisbursementMethod.PAYPAL_PAYOUTS
+    is_primary: Optional[bool] = False
+
+
+class RecipientVerifyRequest(BaseModel):
+    verification_notes: Optional[str] = None
+
+
+class RecipientResponse(BaseModel):
+    id: str
+    organization_id: str
+    recipient_type: str
+    payout_method: str
+    destination_masked: str
+    status: str
+    is_primary: bool
+    verified_at: Optional[datetime] = None
+    created_at: datetime
+
+
+class DisbursementEligibilityResponse(BaseModel):
+    is_eligible: bool
+    milestone_id: str
+    project_id: Optional[str] = None
+    organization_id: Optional[str] = None
+    recipient_id: Optional[str] = None
+    recipient_masked: Optional[str] = None
+    available_balance_minor_units: int
+    max_disbursable_minor_units: int
+    currency: str
+    passed_checks: List[str]
+    failed_checks: List[str]
+    rejection_reasons: List[str]
+
+
+class DisbursementRequestPayload(BaseModel):
+    milestone_id: str
+    amount_minor_units: int
+    recipient_id: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class DisbursementApprovalPayload(BaseModel):
+    notes: Optional[str] = None
+
+
+class DisbursementRejectPayload(BaseModel):
+    reason: str
+
+
+class DisbursementResponse(BaseModel):
+    id: str
+    milestone_id: str
+    organization_id: str
+    review_case_id: Optional[str] = None
+    recipient_id: Optional[str] = None
+    payout_batch_id: Optional[str] = None
+    provider: str
+    provider_item_id: Optional[str] = None
+    amount_minor_units: int
+    gross_amount_minor_units: Optional[int] = None
+    provider_fee_minor_units: int = 0
+    net_amount_minor_units: Optional[int] = None
+    currency: str
+    status: str
+    requested_by_id: Optional[str] = None
+    approved_by_id: Optional[str] = None
+    requested_at: Optional[datetime] = None
+    approved_at: Optional[datetime] = None
+    submitted_at: Optional[datetime] = None
+    disbursed_at: Optional[datetime] = None
+    failure_reason: Optional[str] = None
+    created_at: datetime
+
+
+class PayoutBatchCreatePayload(BaseModel):
+    disbursement_ids: List[str]
+    email_subject: Optional[str] = None
+
+
+class PayoutBatchResponseSchema(BaseModel):
+    id: str
+    batch_reference_id: str
+    provider: str
+    provider_batch_id: Optional[str] = None
+    status: str
+    currency: str
+    total_items_count: int
+    total_amount_minor_units: int
+    total_fees_minor_units: int
+    submitted_by_id: Optional[str] = None
+    submitted_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    created_at: datetime
+
+
+class LedgerEntryLinePayload(BaseModel):
+    account_number: Optional[str] = None
+    account_id: Optional[str] = None
+    debit_minor_units: int = 0
+    credit_minor_units: int = 0
+    currency: str = "USD"
+    memo: Optional[str] = None
+
+
+class LedgerEntryPayload(BaseModel):
+    entry_type: LedgerEntryType
+    description: str
+    lines: List[LedgerEntryLinePayload]
+    reference_id: Optional[str] = None
+    reference_type: Optional[str] = None
+
+
+class ReconciliationRunPayload(BaseModel):
+    period_start: datetime
+    period_end: datetime
+    provider: Optional[str] = "PAYPAL"
+
+
+class DiscrepancyResolvePayload(BaseModel):
+    resolution: DiscrepancyResolution
+    notes: str
+
+
+
 
 

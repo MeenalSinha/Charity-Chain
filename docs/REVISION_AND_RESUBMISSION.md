@@ -48,3 +48,4 @@ CharityChain uses an immutable multi-round architecture:
 If the `revision_deadline` expires before the NGO submits a response:
 - Resubmissions via the API are blocked (`403 Forbidden`).
 - The case is flagged for administrative review, where the platform administrator may either extend the deadline with documented justification or transition the case to `REJECTED`.
+

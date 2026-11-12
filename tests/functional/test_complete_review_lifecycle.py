@@ -281,3 +281,4 @@ def test_complete_human_review_lifecycle(db_session: Session):
     db_session.flush()
     restored_trail = ReviewService.get_review_audit_trail(db=db_session, milestone_id=milestone.id)
     assert restored_trail["is_chain_intact"] is True
+

@@ -31,7 +31,10 @@ from backend.app.core.constants import (
     OrganizationDocumentType, ProjectStatus, MilestoneStatus, ProjectVisibility,
     DonationStatus, PaymentOrderStatus, PaymentCaptureStatus, PaymentRefundStatus,
     ReviewDecision, ReviewCaseStatus, ReviewAssignmentStatus,
-    ReconciliationResult, DisputeStatus, DisputeCategory, DisputeResolution
+    ReconciliationResult, DisputeStatus, DisputeCategory, DisputeResolution,
+    PayoutRecipientStatus, RecipientType, DisbursementMethod, DisbursementStatus,
+    LedgerAccountType, LedgerEntryType, ReconciliationRunStatus, ReconciliationStatus,
+    DiscrepancyType, DiscrepancyResolution
 )
 from backend.app.api.schemas import (
     CreateOrganizationRequest, UpdateOrganizationRequest, OrganizationDecisionRequest,
@@ -44,6 +47,17 @@ from backend.app.services.donation_service import DonationService
 from backend.app.services.evidence_service import EvidenceService
 from backend.app.services.verification_service import VerificationService
 from backend.app.services.review_service import ReviewService
+from backend.app.services.recipient_service import PayoutRecipientService
+from backend.app.services.fund_allocation_service import FundAllocationService
+from backend.app.services.ledger_service import LedgerService
+from backend.app.services.disbursement_eligibility_service import DisbursementEligibilityService
+from backend.app.services.disbursement_service import DisbursementService
+from backend.app.services.reconciliation_service import ReconciliationService
+from backend.app.db.models.financial import (
+    Disbursement, PayoutRecipient, PayoutBatch, PayoutApproval,
+    ReconciliationRun, ReconciliationItem, SettlementRecord
+)
+from backend.app.db.models.ledger import LedgerAccount, JournalEntry, JournalLine
 from backend.app.integrations.storage.local import LocalStorageProvider
 
 
@@ -988,6 +1002,429 @@ def page_reviewer_queue():
 
 
 # ============================================================================
+# PAGE: FINANCIAL OPERATIONS (Phase 8 Maker-Checker & Ledger Center)
+# ============================================================================
+
+def page_financial_operations():
+    """Admin & Financial Operations Center for Maker-Checker disbursements and double-entry ledger."""
+    user_id, role, full_name, email = get_current_user_info()
+
+    st.header("⚖️ Financial Operations & Reconciliation Center")
+    st.write("Milestone-based payouts, Maker-Checker authorization, double-entry ledger explorer, and automated reconciliation.")
+
+    disb_service = DisbursementService()
+    recip_service = PayoutRecipientService()
+
+    tab_disb, tab_batches, tab_ledger, tab_rec, tab_recipients = st.tabs([
+        "📋 Maker-Checker Disbursements",
+        "🚀 Outbound Payout Batches",
+        "⚖️ Double-Entry Ledger",
+        "🔄 Automated Reconciliation",
+        "🏦 NGO Payout Destinations"
+    ])
+
+    # -------------------------------------------------------------------------
+    # TAB 1: MAKER-CHECKER DISBURSEMENTS
+    # -------------------------------------------------------------------------
+    with tab_disb:
+        st.subheader("Milestone Fund Allocation & Maker-Checker Authorization")
+
+        with SessionFactory() as db:
+            from sqlalchemy import select
+            from backend.app.db.models.projects import Milestone, Project
+            all_disbursements = db.execute(
+                select(Disbursement).order_by(Disbursement.created_at.desc())
+            ).scalars().all()
+            approved_milestones = db.execute(
+                select(Milestone).where(Milestone.status.in_([MilestoneStatus.APPROVED, MilestoneStatus.COMPLETED]))
+            ).scalars().all()
+
+        col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+        total_requested = sum(d.amount_minor_units for d in all_disbursements if d.status in (DisbursementStatus.REQUESTED, DisbursementStatus.PENDING_APPROVAL))
+        total_approved = sum(d.amount_minor_units for d in all_disbursements if d.status == DisbursementStatus.APPROVED)
+        total_succeeded = sum(d.amount_minor_units for d in all_disbursements if d.status == DisbursementStatus.SUCCEEDED)
+
+        col_m1.metric("Pending Approval", f"${total_requested/100:,.2f}")
+        col_m2.metric("Committed / Approved", f"${total_approved/100:,.2f}")
+        col_m3.metric("Settled / Succeeded", f"${total_succeeded/100:,.2f}")
+        col_m4.metric("Total Disbursements", len(all_disbursements))
+
+        st.markdown("---")
+
+        col_maker, col_checker = st.columns([1, 1])
+
+        # MAKER COLUMN
+        with col_maker:
+            st.markdown("#### 1. Maker: Request Milestone Disbursement")
+            st.caption("Initiates a formal disbursement request against an approved milestone.")
+
+            if approved_milestones:
+                ms_opts = {m.id: f"{m.title} (#{m.sequence_number})" for m in approved_milestones}
+                selected_ms_id = st.selectbox(
+                    "Select Approved Milestone",
+                    options=list(ms_opts.keys()),
+                    format_func=lambda x: ms_opts[x],
+                    key="maker_selected_ms"
+                )
+
+                with SessionFactory() as db:
+                    eligibility = DisbursementEligibilityService.evaluate_eligibility(db, selected_ms_id)
+
+                if eligibility["is_eligible"]:
+                    st.success(f"✅ **Milestone Eligible**: ${eligibility['available_balance_minor_units']/100:,.2f} {eligibility['currency']} available for payout.")
+                else:
+                    st.error("❌ **Milestone Not Yet Eligible**:")
+                    for r in eligibility["rejection_reasons"]:
+                        st.markdown(f"- ⚠️ {r}")
+
+                with st.form("form_request_disbursement"):
+                    default_amt = eligibility["available_balance_minor_units"] / 100.0 if eligibility["available_balance_minor_units"] > 0 else 100.0
+                    req_amount_dollars = st.number_input(
+                        "Disbursement Amount ($ USD)",
+                        min_value=1.0,
+                        max_value=float(max(1.0, eligibility["available_balance_minor_units"] / 100.0)),
+                        value=float(default_amt),
+                        step=50.0
+                    )
+                    req_notes = st.text_input("Operational Notes", placeholder="Milestone deliverables approved via dual-key review.")
+                    btn_request = st.form_submit_button("Submit Disbursement Request (Maker)", type="primary", use_container_width=True)
+
+                    if btn_request:
+                        req_minor = int(req_amount_dollars * 100)
+                        try:
+                            with SessionFactory() as db:
+                                d_created = disb_service.request_disbursement(
+                                    db=db,
+                                    milestone_id=selected_ms_id,
+                                    amount_minor_units=req_minor,
+                                    requester_id=user_id or "system-operator",
+                                    notes=req_notes
+                                )
+                            st.success(f"✅ Disbursement request {d_created.id} submitted for checker approval!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Failed to request disbursement: {e}")
+            else:
+                st.info("No approved or completed milestones found in system.")
+
+        # CHECKER COLUMN
+        with col_checker:
+            st.markdown("#### 2. Checker: Segregation-of-Duties Authorization")
+            st.caption("Independent finance approver verifies and authorizes payout into ledger.")
+
+            pending_disbursements = [d for d in all_disbursements if d.status in (DisbursementStatus.REQUESTED, DisbursementStatus.PENDING_APPROVAL)]
+
+            if pending_disbursements:
+                for pd in pending_disbursements:
+                    with st.expander(f"Disbursement {pd.id[:8]} — ${pd.amount_minor_units/100:,.2f} {pd.currency}", expanded=True):
+                        st.markdown(f"**Milestone ID:** `{pd.milestone_id}`")
+                        st.markdown(f"**Gross Amount:** `${pd.amount_minor_units/100:,.2f} {pd.currency}`")
+                        st.markdown(f"**Requested By:** `{pd.requested_by_id}` at `{pd.requested_at}`")
+
+                        # Segregation of Duties Check
+                        is_own_request = (user_id is not None and user_id == pd.requested_by_id)
+                        if is_own_request:
+                            st.warning("⚠️ **Maker-Checker Segregation**: You initiated this disbursement request. Platform policy strictly prohibits approving your own requests. An independent finance approver must review this.")
+                        else:
+                            col_app, col_rej = st.columns(2)
+                            with col_app:
+                                if st.button("Approve & Commit to Ledger", key=f"btn_app_{pd.id}", type="primary", use_container_width=True):
+                                    try:
+                                        with SessionFactory() as db:
+                                            disb_service.approve_disbursement(
+                                                db=db,
+                                                disbursement_id=pd.id,
+                                                approver_id=user_id or "system-approver",
+                                                notes="Authorized by independent finance checker"
+                                            )
+                                        st.success("✅ Disbursement authorized and committed to ledger!")
+                                        st.rerun()
+                                    except Exception as e:
+                                        st.error(f"Approval error: {e}")
+
+                            with col_rej:
+                                if st.button("Reject Request", key=f"btn_rej_{pd.id}", use_container_width=True):
+                                    try:
+                                        with SessionFactory() as db:
+                                            disb_service.reject_disbursement(
+                                                db=db,
+                                                disbursement_id=pd.id,
+                                                rejecter_id=user_id or "system-approver",
+                                                reason="Rejected during checker review"
+                                            )
+                                        st.warning("Disbursement rejected.")
+                                        st.rerun()
+                                    except Exception as e:
+                                        st.error(f"Rejection error: {e}")
+            else:
+                st.info("No disbursements currently pending checker authorization.")
+
+    # -------------------------------------------------------------------------
+    # TAB 2: OUTBOUND PAYOUT BATCHES
+    # -------------------------------------------------------------------------
+    with tab_batches:
+        st.subheader("Outbound Payout Batches (PayPal Payouts REST API)")
+        st.caption("Groups authorized milestone disbursements into idempotent batches for gateway execution.")
+
+        with SessionFactory() as db:
+            approved_for_batch = db.execute(
+                select(Disbursement).where(Disbursement.status == DisbursementStatus.APPROVED)
+            ).scalars().all()
+            batches = db.execute(select(PayoutBatch).order_by(PayoutBatch.created_at.desc())).scalars().all()
+
+        if approved_for_batch:
+            st.markdown(f"**Ready for Submission:** {len(approved_for_batch)} approved disbursement(s)")
+            selected_ids = []
+            for d in approved_for_batch:
+                checked = st.checkbox(
+                    f"Disbursement {d.id[:8]} — ${d.amount_minor_units/100:,.2f} {d.currency} (Milestone: `{d.milestone_id[:8]}`)",
+                    value=True,
+                    key=f"batch_chk_{d.id}"
+                )
+                if checked:
+                    selected_ids.append(d.id)
+
+            col_sub1, col_sub2 = st.columns([1, 2])
+            with col_sub1:
+                batch_subject = st.text_input("PayPal Email Subject", value="CharityChain Verified Milestone Disbursement")
+                if st.button("🚀 Submit Payout Batch to PayPal", type="primary", use_container_width=True):
+                    if selected_ids:
+                        try:
+                            with SessionFactory() as db:
+                                b_res = disb_service.create_and_submit_payout_batch(
+                                    db=db,
+                                    disbursement_ids=selected_ids,
+                                    submitter_id=user_id or "system-approver",
+                                    email_subject=batch_subject
+                                )
+                            st.success(f"✅ Batch submitted! Reference ID: `{b_res.batch_reference_id}`, Status: `{b_res.status.value}`")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Batch submission failed: {e}")
+                    else:
+                        st.warning("Please select at least one disbursement.")
+        else:
+            st.info("No approved disbursements awaiting batch submission.")
+
+        st.markdown("---")
+        st.markdown("#### Historical Payout Batches")
+        if batches:
+            batch_data = []
+            for b in batches:
+                batch_data.append({
+                    "Batch Reference": b.batch_reference_id,
+                    "Provider Batch ID": b.provider_batch_id or "Pending",
+                    "Status": b.status.value,
+                    "Items": b.total_items_count,
+                    "Total Amount": f"${b.total_amount_minor_units/100:,.2f} {b.currency}",
+                    "Fees": f"${b.total_fees_minor_units/100:,.2f}",
+                    "Submitted At": str(b.submitted_at)[:19] if b.submitted_at else ""
+                })
+            st.dataframe(batch_data, use_container_width=True)
+        else:
+            st.caption("No payout batches executed yet.")
+
+    # -------------------------------------------------------------------------
+    # TAB 3: DOUBLE-ENTRY LEDGER
+    # -------------------------------------------------------------------------
+    with tab_ledger:
+        st.subheader("Double-Entry General Ledger & Trial Balance")
+        st.caption("Formal double-entry accounting records where Sum(Debits) == Sum(Credits).")
+
+        with SessionFactory() as db:
+            tb = LedgerService.get_trial_balance(db)
+
+        col_tb_status, col_tb_deb, col_tb_cred = st.columns(3)
+        if tb["is_balanced"]:
+            col_tb_status.success("✅ **Ledger In Balance** (Debits == Credits)")
+        else:
+            col_tb_status.error(f"❌ **Trial Balance Discrepancy**: ${tb['discrepancy_minor_units']/100:,.2f}")
+
+        col_tb_deb.metric("Total Debits", f"${tb['total_debit_minor_units']/100:,.2f}")
+        col_tb_cred.metric("Total Credits", f"${tb['total_credit_minor_units']/100:,.2f}")
+
+        st.markdown("#### Chart of Accounts & Balances")
+        accounts_table = []
+        for a in tb["accounts"]:
+            accounts_table.append({
+                "Account #": a["account_number"],
+                "Account Name": a["account_name"],
+                "Type": a["account_type"],
+                "Total Debits": f"${a['total_debit_minor_units']/100:,.2f}",
+                "Total Credits": f"${a['total_credit_minor_units']/100:,.2f}",
+                "Net Balance": f"${a['net_balance_minor_units']/100:,.2f} {a['currency']}"
+            })
+        st.dataframe(accounts_table, use_container_width=True)
+
+        st.markdown("---")
+        st.markdown("#### Account Statement & Audit Explorer")
+        acc_choice = st.selectbox(
+            "Select Account to Drill Down",
+            options=[a["account_number"] for a in tb["accounts"]],
+            format_func=lambda x: next(f"{a['account_number']} - {a['account_name']}" for a in tb["accounts"] if a["account_number"] == x)
+        )
+
+        with SessionFactory() as db:
+            stmt = LedgerService.get_account_statement(db, acc_choice)
+
+        st.markdown(f"**Current Running Balance:** `${stmt['current_balance_minor_units']/100:,.2f} {stmt['currency']}` ({stmt['entries_count']} entries)")
+        if stmt["entries"]:
+            st.dataframe(stmt["entries"], use_container_width=True)
+        else:
+            st.caption("No journal entries posted to this account yet.")
+
+    # -------------------------------------------------------------------------
+    # TAB 4: AUTOMATED RECONCILIATION
+    # -------------------------------------------------------------------------
+    with tab_rec:
+        st.subheader("Automated Financial Reconciliation Engine")
+        st.caption("Reconciles local captures, refunds, and payouts against gateway settlement files.")
+
+        col_d1, col_d2, col_btn = st.columns([1, 1, 1])
+        with col_d1:
+            p_start = st.date_input("Period Start", value=date.today() - timedelta(days=30))
+        with col_d2:
+            p_end = st.date_input("Period End", value=date.today() + timedelta(days=1))
+        with col_btn:
+            st.write("")
+            st.write("")
+            btn_run_rec = st.button("🔄 Run Automated Reconciliation", type="primary", use_container_width=True)
+
+        if btn_run_rec:
+            dt_start = datetime.combine(p_start, datetime.min.time())
+            dt_end = datetime.combine(p_end, datetime.max.time())
+            try:
+                with SessionFactory() as db:
+                    rec_run = ReconciliationService.run_reconciliation(
+                        db=db,
+                        period_start=dt_start,
+                        period_end=dt_end,
+                        executed_by_id=user_id or "system-auditor"
+                    )
+                    run_report = ReconciliationService.get_run_details(db, rec_run.id)
+
+                st.session_state["last_rec_run"] = run_report
+                st.success(f"✅ Reconciliation run {rec_run.run_number} complete! Status: {rec_run.status.value}")
+            except Exception as e:
+                st.error(f"Reconciliation failed: {e}")
+
+        # Display Run Findings
+        last_run = st.session_state.get("last_rec_run")
+        if last_run:
+            st.markdown(f"### Run Summary: `{last_run['run_number']}` ({last_run['status']})")
+            c_r1, c_r2, c_r3, c_r4 = st.columns(4)
+            c_r1.metric("Analyzed", last_run["total_records_analyzed"])
+            c_r2.metric("Matched", last_run["matched_count"])
+            c_r3.metric("Discrepancies", last_run["discrepancy_count"])
+            c_r4.metric("Local Total", f"${last_run['total_local_minor_units']/100:,.2f}")
+
+            if last_run["items"]:
+                st.markdown("#### Itemized Audit Records")
+                st.dataframe(last_run["items"], use_container_width=True)
+
+                discrepancies = [it for it in last_run["items"] if it["reconciliation_status"] == "DISCREPANCY"]
+                if discrepancies:
+                    st.markdown("#### Resolve Identified Discrepancy")
+                    target_item_id = st.selectbox(
+                        "Select Discrepant Item",
+                        options=[d["item_id"] for d in discrepancies],
+                        format_func=lambda x: next(f"{d['item_type']} - Ref: {d['provider_transaction_id'] or d['reference_id']} ({d['discrepancy_type']})" for d in discrepancies if d["item_id"] == x)
+                    )
+                    with st.form("form_resolve_disc"):
+                        res_type = st.selectbox("Resolution Action", options=[r.value for r in DiscrepancyResolution])
+                        res_notes = st.text_area("Resolution Explanation", placeholder="Document why discrepancy was adjusted or accepted.")
+                        btn_resolve = st.form_submit_button("Record Discrepancy Resolution", type="primary")
+
+                        if btn_resolve:
+                            try:
+                                with SessionFactory() as db:
+                                    ReconciliationService.resolve_discrepancy(
+                                        db=db,
+                                        item_id=target_item_id,
+                                        resolution=DiscrepancyResolution(res_type),
+                                        notes=res_notes,
+                                        resolver_id=user_id or "system-auditor"
+                                    )
+                                st.success("✅ Discrepancy resolution saved.")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Failed to resolve discrepancy: {e}")
+            else:
+                st.info("No transaction records found within selected date range.")
+
+    # -------------------------------------------------------------------------
+    # TAB 5: NGO PAYOUT DESTINATIONS
+    # -------------------------------------------------------------------------
+    with tab_recipients:
+        st.subheader("NGO Payout Destinations & Verification Management")
+        st.caption("Configured receiving accounts for verified charitable organizations.")
+
+        with SessionFactory() as db:
+            from backend.app.db.models.users import Organization
+            all_orgs = db.execute(select(Organization)).scalars().all()
+            all_recipients = db.execute(select(PayoutRecipient).order_by(PayoutRecipient.created_at.desc())).scalars().all()
+
+        col_rec_list, col_rec_add = st.columns([1, 1])
+
+        with col_rec_list:
+            st.markdown("#### Active Payout Destinations")
+            if all_recipients:
+                for r in all_recipients:
+                    with st.expander(f"{r.destination_masked} ({r.status.value})", expanded=(r.status == PayoutRecipientStatus.PENDING_VERIFICATION)):
+                        st.markdown(f"**Org ID:** `{r.organization_id}`")
+                        st.markdown(f"**Method:** `{r.payout_method.value}` ({r.recipient_type.value})")
+                        st.markdown(f"**Primary:** `{'Yes' if r.is_primary else 'No'}`")
+                        st.markdown(f"**Status:** `{r.status.value}`")
+
+                        if r.status == PayoutRecipientStatus.PENDING_VERIFICATION:
+                            if st.button("Verify Recipient Account", key=f"btn_ver_rec_{r.id}", type="primary"):
+                                try:
+                                    with SessionFactory() as db:
+                                        recip_service.verify_recipient(
+                                            db=db,
+                                            recipient_id=r.id,
+                                            verifier_id=user_id or "system-admin",
+                                            verification_notes="Verified via Financial Operations Center"
+                                        )
+                                    st.success("✅ Payout recipient verified successfully!")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Verification error: {e}")
+            else:
+                st.info("No payout destinations registered yet.")
+
+        with col_rec_add:
+            st.markdown("#### Register Payout Destination for NGO")
+            if all_orgs:
+                org_map = {o.id: f"{o.legal_name} ({o.status})" for o in all_orgs}
+                selected_org = st.selectbox("Select Organization", options=list(org_map.keys()), format_func=lambda x: org_map[x])
+
+                with st.form("form_reg_payout_recip"):
+                    dest_type = st.selectbox("Destination Type", options=[RecipientType.PAYPAL_EMAIL.value, RecipientType.BANK_ACCOUNT.value])
+                    dest_value = st.text_input("Destination (e.g. PayPal Email Address)", placeholder="finance@ngo.org")
+                    is_prim = st.checkbox("Set as Primary Receiving Destination", value=True)
+                    btn_reg_rec = st.form_submit_button("Register Destination", type="primary", use_container_width=True)
+
+                    if btn_reg_rec:
+                        try:
+                            with SessionFactory() as db:
+                                recip_service.register_recipient(
+                                    db=db,
+                                    organization_id=selected_org,
+                                    destination=dest_value,
+                                    recipient_type=RecipientType(dest_type),
+                                    is_primary=is_prim,
+                                    actor_id=user_id or "system-operator"
+                                )
+                            st.success("✅ Payout destination registered and queued for verification!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Registration failed: {e}")
+            else:
+                st.info("No organizations registered in system.")
+
+
+# ============================================================================
 # PAGE: DISCOVER PROJECTS (Enhanced Public Discovery)
 # ============================================================================
 
@@ -1758,6 +2195,7 @@ def main():
             "Organization Onboarding",
             "Project Management",
             "Reviewer Queue",
+            "Financial Operations",
             "Submit Evidence",
             "Analytics",
             "Impact Map",
@@ -1795,6 +2233,8 @@ def main():
         page_project_management()
     elif page == "Reviewer Queue":
         page_reviewer_queue()
+    elif page == "Financial Operations":
+        page_financial_operations()
     elif page in ["Submit Evidence", "Evidence"]:
         page_submit_evidence()
     elif page == "Analytics":

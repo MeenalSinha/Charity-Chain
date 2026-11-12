@@ -51,3 +51,4 @@ Declaring a conflict:
 2. Transitions the task state to `DECLINED` with `conflict_declared = True`.
 3. Records the detailed reason in the immutable audit trail.
 4. Frees the slot for administrative reassignment without penalty to the reviewer's rating.
+

@@ -57,3 +57,4 @@ The assigned adjudicator **cannot** be any of the reviewers who submitted decisi
 | `REQUEST_NEW_EVIDENCE` | Moves to `REVISION_REQUIRED` | Moves to `REVISION_REQUIRED` | The dispute establishes that additional verification is required before a final determination. |
 | `UPHOLD_ORIGINAL_DECISION` | Moves to `CLOSED` | Remains `REJECTED` | The original rejection is confirmed as valid, sound, and binding. Case is permanently closed. |
 | `DISMISS_DISPUTE` | Moves to `CLOSED` | Remains `REJECTED` | Appeal is dismissed as unsubstantiated, frivolous, or vexatious. |
+

@@ -57,3 +57,4 @@ The algorithm:
    - Validates that `ev.current_event_hash == expected_hash`.
    - Advances `current_pointer = ev.current_event_hash`.
 3. If any record fails matching or order, `is_chain_intact` returns `False` immediately, pinpointing the corrupted record.
+
