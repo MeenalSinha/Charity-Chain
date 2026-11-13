@@ -66,8 +66,21 @@ jobs:
         run: |
           mkdir -p test-results
           pytest tests/ -v --tb=short --junit-xml=test-results/backend.xml \
-            --ignore=tests/smoke \
-            -q
+            --ignore=tests/smoke
+
+      - name: Print failed tests on failure
+        if: failure()
+        run: |
+          python -c "
+          import xml.etree.ElementTree as ET, glob
+          for f in glob.glob('test-results/*.xml'):
+              print('=== XML:', f)
+              tree = ET.parse(f)
+              for tc in tree.iter('testcase'):
+                  for fail in tc.iter('failure'):
+                      print('FAILED:', tc.attrib.get('classname'), tc.attrib.get('name'))
+                      print(fail.text[:1000] if fail.text else 'No text')
+          " || true
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
@@ -115,7 +128,8 @@ jobs:
         env:
           NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
           NEXT_PUBLIC_APP_URL: http://localhost:3000
-        run: pnpm run build
+        run: |
+          pnpm run build || (echo "=== NEXT BUILD ERROR ===" && pnpm exec next build --debug; exit 1)
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
