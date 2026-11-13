@@ -262,3 +262,25 @@
 | **12.12** | Responsive Design & Accessibility Audit | **COMPLETED** | Verified responsive layouts (360px–1440px), semantic HTML, ARIA progress bars, focus rings, and WCAG 2.2 AA contrast ratios. |
 | **12.13** | Frontend Quality Engineering & Automated Testing | **COMPLETED** | Created Vitest test suite with 11 unit/component tests passing (100%); verified clean Next.js production build (`npx next build`) generating 24 routes. |
 | **12.14** | Docker & Deployment Integration | **COMPLETED** | Created `frontend/Dockerfile` and added `frontend` service to `docker-compose.yml` on port 3000; preserved legacy Streamlit fallback. |
+
+---
+
+## Phase 13: Production Security, Compliance & Observability
+
+| Task ID | Task Description | Status | Verification Note |
+|:---:|:---|:---:|:---|
+| **13.1** | Pre-Phase 13 Audit & Phase 12 Verification Gate | **COMPLETED** | Independently verified all Phase 12 features, 24 routes, BFF session cookies, 357 backend tests, and 11 Vitest tests; authored `docs/PRE_PHASE_13_VERIFICATION_REPORT.md`. |
+| **13.2** | STRIDE Threat Model & DREAD Risk Assessment | **COMPLETED** | Authored `docs/PHASE_13_THREAT_MODEL.md` classifying high-value assets and defining mitigations across all STRIDE threat categories. |
+| **13.3** | Security Architecture & Production Hardening | **COMPLETED** | Authored `docs/PHASE_13_SECURITY_ARCHITECTURE.md` and `docs/PHASE_13_SECURITY_HARDENING.md` covering zero-trust defense-in-depth and non-root container profiles. |
+| **13.4** | Redis Sliding-Window Rate Limiting Engine | **COMPLETED** | Implemented `SlidingWindowRateLimiter` in `backend/app/core/rate_limiter.py` with memory fallback, RFC 6585 headers, and HTTP 429 JSON responses; documented in `docs/PHASE_13_RATE_LIMITING.md`. |
+| **13.5** | Endpoint Rate Limiting Enforcement | **COMPLETED** | Decorated `/api/v1/auth/*` (auth tier), `/api/v1/donations` (financial tier), and `/api/v1/evidence/*` (evidence tier) with rate-limiting dependencies. |
+| **13.6** | Centralized Tamper-Evident Security Audit Trail | **COMPLETED** | Implemented `SecurityAuditEvent` model and `SecurityAuditService` with sequential SHA-256 hash chaining, isolated from the Proof-of-Impact ledger; documented in `docs/PHASE_13_SECURITY_AUDIT_TRAIL.md`. |
+| **13.7** | Alembic Migration 012 | **COMPLETED** | Created bidirectional schema migration `012_phase13_security_audit_and_observability.py` establishing `security_audit_events` table and performance indexes. |
+| **13.8** | Administrative Security Audit APIs | **COMPLETED** | Mounted `/api/v1/admin/security/audit-logs` and `/api/v1/admin/security/audit-logs/verify` in `backend/app/api/v1/admin.py` guarded by `PLATFORM_ADMIN` RBAC. |
+| **13.9** | Prometheus Metrics Instrumentation & `/metrics` | **COMPLETED** | Implemented standard counters and histograms in `backend/app/core/metrics.py`, request timing middleware in `backend/app/main.py`, and exposed `GET /metrics`; documented in `docs/PHASE_13_PROMETHEUS_METRICS.md`. |
+| **13.10** | Provisioned Grafana Dashboards & Docker Services | **COMPLETED** | Created 5 JSON dashboards in `docker/grafana/dashboards/`, provisioning configs, and added `prometheus` and `grafana` services to `docker-compose.yml`; documented in `docs/PHASE_13_GRAFANA_DASHBOARDS.md`. |
+| **13.11** | Zero-PII Sentry Error Monitoring | **COMPLETED** | Initialized Sentry SDK in `backend/app/core/sentry.py` and frontend config with recursive PII/credential stripping; documented in `docs/PHASE_13_SENTRY_CONFIGURATION.md`. |
+| **13.12** | SOC 2 Type II Readiness Control Matrix | **COMPLETED** | Authored `docs/PHASE_13_COMPLIANCE_CONTROL_MATRIX.md` mapping CharityChain technical implementations to AICPA Trust Services Criteria. |
+| **13.13** | Privacy, Incident Response & Vulnerability Policies | **COMPLETED** | Authored `docs/PHASE_13_PRIVACY_AND_DATA_GOVERNANCE.md`, `docs/PHASE_13_INCIDENT_RESPONSE_PLAN.md` with 5 containment runbooks, and `docs/PHASE_13_VULNERABILITY_MANAGEMENT.md`. |
+| **13.14** | Automated Testing & Regression Verification | **COMPLETED** | Authored 5 new test suites adding 15 tests. All 372 backend tests and 11 Vitest frontend tests passed with 100% pass rate; documented in `docs/PHASE_13_TEST_REPORT.md` and `docs/PHASE_13_COMPLETION_REPORT.md`. |
+

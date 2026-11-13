@@ -12,6 +12,7 @@ from sqlalchemy import select, and_
 from backend.app.core.config import settings
 from backend.app.core.logging import correlation_id_ctx
 from backend.app.core.permissions import get_current_user, get_current_active_user
+from backend.app.core.rate_limiter import auth_rate_limit
 from backend.app.db.session import get_db_session
 from backend.app.db.models.users import User, UserSession
 from backend.app.services.auth_service import AuthService
@@ -26,7 +27,7 @@ from backend.app.api.schemas import (
 router = APIRouter(prefix="/auth", tags=["Authentication & Identity"])
 
 
-@router.post("/register", response_model=StandardResponse[RegisterResponse], status_code=status.HTTP_201_CREATED)
+@router.post("/register", response_model=StandardResponse[RegisterResponse], status_code=status.HTTP_201_CREATED, dependencies=[Depends(auth_rate_limit())])
 def register(req: RegisterRequest, db: Session = Depends(get_db_session)):
     """Registers a new user account with default DONOR role."""
     data = AuthService.register_user(db, req)
@@ -59,7 +60,7 @@ def resend_verification(req: ResendVerificationRequest, db: Session = Depends(ge
     )
 
 
-@router.post("/login", response_model=StandardResponse[TokenResponse])
+@router.post("/login", response_model=StandardResponse[TokenResponse], dependencies=[Depends(auth_rate_limit())])
 def login(req: LoginRequest, request: Request, db: Session = Depends(get_db_session)):
     """Authenticates credentials, manages failed attempt lockouts, and issues tokens."""
     client_ip = request.client.host if request.client else None
@@ -168,7 +169,7 @@ def revoke_session(
     )
 
 
-@router.post("/forgot-password", response_model=StandardResponse[dict])
+@router.post("/forgot-password", response_model=StandardResponse[dict], dependencies=[Depends(auth_rate_limit())])
 def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_db_session)):
     """Dispatches a password reset recovery link."""
     AuthService.initiate_password_reset(db, req.email)
@@ -179,7 +180,7 @@ def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_db_ses
     )
 
 
-@router.post("/reset-password", response_model=StandardResponse[dict])
+@router.post("/reset-password", response_model=StandardResponse[dict], dependencies=[Depends(auth_rate_limit())])
 def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db_session)):
     """Resets password using single-use recovery token."""
     AuthService.reset_password(db, req.token, req.new_password, req.new_password_confirm)

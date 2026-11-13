@@ -1,0 +1,54 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "title": "AI Forensic Verification Latency",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(charitychain_ai_verification_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p95 Latency (s)"
+        }
+      ]
+    },
+    {
+      "title": "Evidence Tampering Anomaly Detections",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(rate(charitychain_ai_verification_tampering_detections_total[5m])) by (tamper_type)",
+          "legendFormat": "{{tamper_type}}"
+        }
+      ]
+    },
+    {
+      "title": "Total Flagged Tamper Anomalies",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum(charitychain_ai_verification_tampering_detections_total)",
+          "legendFormat": "Total Flags"
+        }
+      ]
+    }
+  ],
+  "refresh": "1m",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["charitychain", "ai", "evidence"],
+  "time": { "from": "now-12h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "CharityChain — AI Forensic Pipeline Telemetry",
+  "uid": "cc-ai-evidence",
+  "version": 1
+}

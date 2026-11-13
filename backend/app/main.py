@@ -24,6 +24,12 @@ from backend.app.db.session import check_db_connection
 async def lifespan(app: FastAPI):
     """Lifecycle events: startup and graceful shutdown."""
     logger.info(f"Starting {settings.APP_NAME} v{settings.APP_VERSION} [{settings.ENVIRONMENT}]")
+    try:
+        from backend.app.core.sentry import init_sentry
+        init_sentry()
+    except Exception as exc:
+        logger.warning(f"Sentry initialization skipped or failed: {exc}")
+
     db_ok = check_db_connection()
     if db_ok:
         logger.info("Database connectivity established successfully.")
@@ -53,7 +59,40 @@ def create_application() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # 2. Correlation ID Middleware
+    # 2. Security Response Headers Middleware (OWASP ASVS Hardening)
+    @app.middleware("http")
+    async def security_headers_middleware(request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "0"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        if settings.ENVIRONMENT == "production":
+            response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains; preload"
+        return response
+
+    # 3. Prometheus Operational Telemetry Middleware
+    @app.middleware("http")
+    async def prometheus_telemetry_middleware(request: Request, call_next):
+        if not settings.METRICS_ENABLED or request.url.path == "/metrics":
+            return await call_next(request)
+        import time
+        from backend.app.core.metrics import http_requests_total, http_request_duration_seconds
+        start_time = time.time()
+        response = await call_next(request)
+        duration = time.time() - start_time
+        http_requests_total.labels(
+            method=request.method,
+            endpoint=request.url.path,
+            status=str(response.status_code),
+        ).inc()
+        http_request_duration_seconds.labels(
+            method=request.method,
+            endpoint=request.url.path,
+        ).observe(duration)
+        return response
+
+    # 4. Correlation ID Middleware
     @app.middleware("http")
     async def correlation_id_middleware(request: Request, call_next):
         correlation_id = request.headers.get("X-Correlation-ID", str(uuid.uuid4()))
@@ -65,7 +104,16 @@ def create_application() -> FastAPI:
         finally:
             correlation_id_ctx.reset(token)
 
-    # 3. Global Exception Handlers
+    # 5. Global Exception Handlers
+    from backend.app.core.rate_limiter import RateLimitExceededException
+
+    @app.exception_handler(RateLimitExceededException)
+    async def rate_limit_exception_handler(request: Request, exc: RateLimitExceededException):
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=exc.detail,
+            headers=exc.headers
+        )
     @app.exception_handler(CharityChainException)
     async def custom_exception_handler(request: Request, exc: CharityChainException):
         logger.warning(
@@ -115,6 +163,15 @@ def create_application() -> FastAPI:
     @app.get("/.well-known/jwks.json", tags=["JWKS Discovery"])
     def root_jwks(db: Session = Depends(get_db)):
         return KeyManagementService.build_jwks(db)
+
+    # 6. Prometheus Metrics Endpoint
+    from fastapi.responses import Response
+    from backend.app.core.metrics import get_latest_metrics, CONTENT_TYPE_LATEST
+
+    @app.get("/metrics", tags=["Observability"])
+    def prometheus_metrics():
+        """Exposes standard Prometheus metrics in text format."""
+        return Response(content=get_latest_metrics(), media_type=CONTENT_TYPE_LATEST)
 
     return app
 

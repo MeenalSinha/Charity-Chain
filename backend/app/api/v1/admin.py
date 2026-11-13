@@ -17,6 +17,7 @@ from backend.app.db.models.users import User
 from backend.app.services.admin_service import AdminService
 from backend.app.services.ngo_onboarding_service import NGOOnboardingService
 from backend.app.services.project_service import ProjectService
+from backend.app.services.security_audit_service import SecurityAuditService
 from backend.app.api.schemas import (
     StandardResponse, PaginatedResponse, PaginationMeta,
     UserResponse, UpdateUserStatusRequest, UpdateUserRoleRequest,
@@ -313,5 +314,39 @@ def get_payment_reconciliation(
         },
         message="Financial reconciliation summary calculated successfully"
     )
+
+
+@router.get("/security/audit-logs", response_model=StandardResponse)
+def list_security_audit_logs(
+    event_type: Optional[str] = None,
+    severity: Optional[str] = None,
+    user_id: Optional[str] = None,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=100),
+    current_admin: User = Depends(require_platform_role(PlatformRole.PLATFORM_ADMIN)),
+    db: Session = Depends(get_db_session)
+):
+    """Retrieves paginated, filtered security audit logs. Requires Platform Admin."""
+    result = SecurityAuditService.get_audit_events(
+        db,
+        event_type=event_type,
+        severity=severity,
+        user_id=user_id,
+        page=page,
+        page_size=page_size
+    )
+    return StandardResponse(data=result, message="Security audit logs retrieved successfully")
+
+
+@router.get("/security/audit-logs/verify", response_model=StandardResponse)
+def verify_security_audit_chain(
+    limit: int = Query(1000, ge=1, le=5000),
+    current_admin: User = Depends(require_platform_role(PlatformRole.PLATFORM_ADMIN)),
+    db: Session = Depends(get_db_session)
+):
+    """Verifies the SHA-256 cryptographic chain integrity of the security audit trail."""
+    result = SecurityAuditService.verify_chain_integrity(db, limit=limit)
+    return StandardResponse(data=result, message="Security audit chain integrity verified")
+
 
 

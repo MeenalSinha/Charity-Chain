@@ -14,6 +14,7 @@ from backend.app.core.config import settings
 from backend.app.core.exceptions import ValidationException
 from backend.app.core.logging import correlation_id_ctx
 from backend.app.core.permissions import get_current_active_user
+from backend.app.core.rate_limiter import evidence_rate_limit
 from backend.app.db.session import get_db_session
 from backend.app.db.models.users import User
 from backend.app.services.evidence_service import EvidenceService
@@ -84,7 +85,8 @@ def _stream_and_validate_upload(
     "/milestones/{milestone_id}/evidence",
     response_model=StandardResponse[EvidenceBatchUploadResponse],
     status_code=status.HTTP_201_CREATED,
-    summary="Multi-File Evidence Upload"
+    summary="Multi-File Evidence Upload",
+    dependencies=[Depends(evidence_rate_limit())]
 )
 def upload_milestone_evidence(
     milestone_id: str = Path(..., description="Target milestone UUID"),

@@ -16,6 +16,7 @@ from backend.app.api.schemas import (
 from backend.app.core.constants import PlatformRole, DonationStatus
 from backend.app.core.exceptions import NotFoundException, ForbiddenException
 from backend.app.core.permissions import get_current_user, get_optional_current_user
+from backend.app.core.rate_limiter import financial_rate_limit
 from backend.app.db.session import get_db
 from backend.app.db.models.users import User
 from backend.app.db.models.financial import Donation, PaymentOrder
@@ -25,7 +26,7 @@ router = APIRouter(prefix="/donations", tags=["Donations"])
 donation_service = DonationService()
 
 
-@router.post("", response_model=StandardResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=StandardResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(financial_rate_limit())])
 def create_donation(
     payload: CreateDonationRequest,
     current_user: Optional[User] = Depends(get_optional_current_user),

@@ -37,6 +37,9 @@ from backend.app.db.models.notifications import (
 from backend.app.db.models.analytics import (
     AnalyticsSnapshot, AnalyticsExportJob, PublicTransparencyPublication
 )
+from backend.app.db.models.security_audit import (
+    SecurityAuditEvent, compute_security_audit_hash, GENESIS_SECURITY_AUDIT_HASH
+)
 
 __all__ = [
     "Base",
@@ -103,6 +106,9 @@ __all__ = [
     "NotificationTemplateVersion",
     "AnalyticsSnapshot",
     "AnalyticsExportJob",
-    "PublicTransparencyPublication"
+    "PublicTransparencyPublication",
+    "SecurityAuditEvent",
+    "compute_security_audit_hash",
+    "GENESIS_SECURITY_AUDIT_HASH"
 ]
 

@@ -5,7 +5,7 @@
 [![Next.js](https://img.shields.io/badge/Next.js-16.4+-black.svg)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-19-blue.svg)](https://react.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-4.3+-38bdf8.svg)](https://tailwindcss.com/)
-[![Tests](https://img.shields.io/badge/tests-358%2F358%20passing-brightgreen.svg)](docs/PHASE_11_TEST_REPORT.md)
+[![Tests](https://img.shields.io/badge/tests-372%2F372%20passing-brightgreen.svg)](docs/PHASE_13_TEST_REPORT.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 > **Give with Evidence. Release with Confidence.**

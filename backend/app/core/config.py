@@ -247,6 +247,28 @@ class Settings(BaseSettings):
     OUTBOX_BATCH_SIZE: int = Field(default=50, description="Maximum batch size of pending outbox events to process per cycle")
     OUTBOX_MAX_RETRIES: int = Field(default=5, description="Maximum dispatch retries for outbox events before dead-lettering")
 
+    # 12. Rate Limiting & Abuse Prevention (Phase 13)
+    RATE_LIMITING_ENABLED: bool = Field(default=True, description="Enable API rate limiting")
+    RATE_LIMIT_AUTH_PER_MINUTE: int = Field(default=5, description="Rate limit for auth endpoints per minute")
+    RATE_LIMIT_FINANCIAL_PER_MINUTE: int = Field(default=20, description="Rate limit for payment & donation endpoints per minute")
+    RATE_LIMIT_EVIDENCE_PER_MINUTE: int = Field(default=10, description="Rate limit for evidence and AI upload endpoints per minute")
+    RATE_LIMIT_DEFAULT_PER_MINUTE: int = Field(default=100, description="Default rate limit for API endpoints per minute")
+
+    # 13. Centralized Security Audit Trail (Phase 13)
+    SECURITY_AUDIT_RETENTION_DAYS: int = Field(default=365, description="Retention window for security audit logs in days")
+
+    # 14. Metrics & Observability (Phase 13)
+    METRICS_ENABLED: bool = Field(default=True, description="Enable Prometheus /metrics endpoint")
+    METRICS_HTTP_AUTH_USER: Optional[str] = Field(default=None, description="Basic auth user for metrics endpoint (if configured)")
+    METRICS_HTTP_AUTH_PASSWORD: Optional[str] = Field(default=None, description="Basic auth password for metrics endpoint (if configured)")
+
+    # 15. Sentry Error Monitoring & Distributed Tracing (Phase 13)
+    SENTRY_DSN: Optional[str] = Field(default=None, description="Sentry DSN for error reporting")
+    SENTRY_ENVIRONMENT: Optional[str] = Field(default=None, description="Sentry environment tag (defaults to ENVIRONMENT)")
+    SENTRY_TRACES_SAMPLE_RATE: float = Field(default=0.1, description="Sentry performance tracing sample rate")
+    SENTRY_PROFILES_SAMPLE_RATE: float = Field(default=0.1, description="Sentry profiling sample rate")
+
+
 
     @model_validator(mode="after")
     def validate_production_security(self):

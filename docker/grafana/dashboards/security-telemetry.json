@@ -1,0 +1,54 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "title": "Sliding-Window Rate Limit Throttling",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(rate(charitychain_rate_limit_hits_total[1m])) by (tier)",
+          "legendFormat": "{{tier}} Drops/sec"
+        }
+      ]
+    },
+    {
+      "title": "Security Audit Events Ingestion",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(rate(charitychain_security_audit_events_total[5m])) by (severity)",
+          "legendFormat": "{{severity}} Events/sec"
+        }
+      ]
+    },
+    {
+      "title": "Critical / Error Security Alerts",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum(charitychain_security_audit_events_total{severity=~\"CRITICAL|ERROR\"})",
+          "legendFormat": "Critical Security Incidents"
+        }
+      ]
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["charitychain", "security", "rate-limiting"],
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "CharityChain — Security & Abuse Telemetry",
+  "uid": "cc-security-telemetry",
+  "version": 1
+}

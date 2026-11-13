@@ -29,3 +29,8 @@ requests>=2.31.0
 aiohttp>=3.9.0
 qrcode>=7.4.0
 pycryptodome>=3.20.0
+
+# Observability & Production Monitoring (Phase 13)
+prometheus-client>=0.20.0
+sentry-sdk>=2.0.0
+
