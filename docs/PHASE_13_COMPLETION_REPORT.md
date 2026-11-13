@@ -71,3 +71,4 @@ Key deliverables include:
 | Telemetry Scraper | Prometheus | v2.51.0 | Metric ingestion and alerting |
 | Visualization | Grafana | 10.4.1 | Operational dashboards |
 | End-to-End Testing | Playwright & Axe-Core | 1.65.0 / 4.14.0 | Browser automated testing & accessibility |
+

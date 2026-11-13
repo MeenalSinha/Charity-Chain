@@ -140,3 +140,4 @@ This threat model identifies high-value assets, diagrams system trust boundaries
 3. **Observability & Error Hardening**: Sentry SDK with recursive PII scrubber and Prometheus `/metrics` scraping.
 4. **OWASP Hardening**: HTTP Strict Transport Security, Content Security Policy, Permissions Policy, and non-root container profiles.
 5. **SOC 2 Readiness**: Operational controls for access review, vulnerability management, and incident response.
+

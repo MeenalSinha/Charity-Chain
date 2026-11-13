@@ -23,3 +23,4 @@ export const SENTRY_CONFIG = {
     return event;
   },
 };
+

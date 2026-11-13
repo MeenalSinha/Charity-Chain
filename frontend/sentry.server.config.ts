@@ -17,3 +17,4 @@ export const SENTRY_SERVER_CONFIG = {
     return event;
   },
 };
+

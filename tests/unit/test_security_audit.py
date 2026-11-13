@@ -102,3 +102,4 @@ def test_tamper_detection_flags_broken_link(db_session):
     report = SecurityAuditService.verify_chain_integrity(db_session)
     assert report["is_valid"] is False
     assert report["broken_at_event_id"] == e2.event_id
+

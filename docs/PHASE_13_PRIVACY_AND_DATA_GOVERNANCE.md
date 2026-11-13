@@ -53,3 +53,4 @@ When a project or milestone is flagged as `is_location_sensitive = True`:
 1. **Human-in-the-Loop Principle**: AI models (YOLO object detection, Error Level Analysis, pHash comparison) never make binding financial or approval decisions autonomously. AI serves exclusively as an advisory diagnostic tool for human reviewers.
 2. **Dual-Key Human Approval**: Releasing donor funds requires two independent human reviewers to approve the evidence packet.
 3. **Forensic Transparency**: All AI confidence scores, detected objects, and ELA deviation maps are preserved in the review case for auditability.
+

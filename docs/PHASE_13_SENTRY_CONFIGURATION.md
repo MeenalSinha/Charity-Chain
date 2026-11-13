@@ -43,3 +43,4 @@ def before_send_filter(event: Dict[str, Any], hint: Dict[str, Any]) -> Optional[
 Configured in `backend/app/core/config.py`:
 - `SENTRY_TRACES_SAMPLE_RATE`: Default `0.1` (10% sampling) to minimize overhead.
 - `SENTRY_PROFILES_SAMPLE_RATE`: Default `0.1` (10% profiling on sampled transactions).
+

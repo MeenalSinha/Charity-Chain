@@ -1,0 +1,81 @@
+name: Security Scan
+
+on:
+  schedule:
+    - cron: '0 3 * * 1'   # Every Monday at 03:00 UTC
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  dependency-audit:
+    name: Python Dependency Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run pip-audit
+        run: |
+          pip install pip-audit
+          pip-audit -r requirements.txt --format=json --output=pip-audit.json || true
+          pip-audit -r requirements.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pip-audit-report
+          path: pip-audit.json
+
+  sast:
+    name: SAST — Bandit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run Bandit
+        run: |
+          pip install bandit[toml]
+          bandit -r backend/app/ \
+            -x backend/app/tests/ \
+            -ll \
+            --format sarif \
+            --output bandit.sarif || true
+          bandit -r backend/app/ -x backend/app/tests/ -ll
+      - name: Upload SARIF to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: bandit.sarif
+
+  secret-scan:
+    name: Secret Scanning — Gitleaks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # Full history for secret detection
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  npm-audit:
+    name: npm Dependency Audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: latest
+      - run: pnpm install --frozen-lockfile
+      - name: Audit frontend dependencies
+        run: pnpm audit --audit-level=high || true
+

@@ -1,0 +1,62 @@
+# ============================================================
+# CharityChain — docker-compose.staging.yml
+# Staging-environment Docker Compose Overrides
+# Phase 14: Close to production, but debug-accessible
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.staging.yml up -d
+# ============================================================
+
+version: '3.8'
+
+services:
+  postgres:
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-staging_password_change_me}
+    restart: unless-stopped
+
+  redis:
+    restart: unless-stopped
+
+  backend:
+    environment:
+      - ENVIRONMENT=staging
+      - DEBUG=false
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-charity_user}:${POSTGRES_PASSWORD:-staging_password_change_me}@postgres:5432/${POSTGRES_DB:-charitychain_staging}
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY:-staging-secret-key-min-64-chars-replace-in-real-staging}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-staging-jwt-key-min-64-chars-replace-in-real-staging}
+      - SENTRY_DSN=${SENTRY_DSN:-}
+      - PAYPAL_ENVIRONMENT=sandbox
+      - PAYPAL_CLIENT_ID=${PAYPAL_CLIENT_ID:-}
+      - PAYPAL_CLIENT_SECRET=${PAYPAL_CLIENT_SECRET:-}
+      - RATE_LIMIT_REDIS_REQUIRED=false
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  frontend:
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+      - BACKEND_URL=http://backend:8000
+      - NEXT_PUBLIC_APP_URL=http://localhost:3000
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+  prometheus:
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+
+  grafana:
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-staging_grafana_password}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    restart: unless-stopped
+

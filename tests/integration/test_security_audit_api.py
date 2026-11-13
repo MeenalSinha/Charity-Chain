@@ -69,3 +69,4 @@ def test_list_and_verify_security_audit_logs(admin_user, db_session):
     assert verify_resp.success is True
     assert verify_resp.data["is_valid"] is True
     assert verify_resp.data["audited_count"] >= 2
+

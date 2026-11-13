@@ -5,7 +5,7 @@
 [![Next.js](https://img.shields.io/badge/Next.js-16.4+-black.svg)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-19-blue.svg)](https://react.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-4.3+-38bdf8.svg)](https://tailwindcss.com/)
-[![Tests](https://img.shields.io/badge/tests-372%2F372%20passing-brightgreen.svg)](docs/PHASE_13_TEST_REPORT.md)
+[![Tests](https://img.shields.io/badge/tests-438%2F438%20passing-brightgreen.svg)](docs/PHASE_14_TEST_REPORT.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 > **Give with Evidence. Release with Confidence.**
@@ -272,6 +272,48 @@ For in-depth architectural and domain specifications, refer to the documents in 
 - [Formal Dispute Resolution](docs/DISPUTE_RESOLUTION.md)
 - [Review Audit Trail](docs/REVIEW_AUDIT_TRAIL.md)
 - [Review API Documentation](docs/REVIEW_API.md)
+
+---
+
+## 🚀 Deployment
+
+CharityChain is designed for Google Cloud Run with Terraform IaC.
+
+### Quick Start (Local Development)
+```bash
+# Clone and start development environment
+git clone https://github.com/MeenalSinha/Charity-Chain.git
+cd Charity-Chain
+cp .env.example .env
+docker compose up -d
+```
+
+### Production Deployment
+```bash
+# See docs/PHASE_14_DEPLOYMENT_ARCHITECTURE_DECISION.md
+# Requires GCP project + environment variables from .env.production.example
+cp .env.production.example .env
+# Fill in all required secrets before proceeding
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+```
+
+### Infrastructure as Code
+```bash
+cd infra/terraform/environments/production
+cp terraform.tfvars.example terraform.tfvars
+# Fill in project_id, images, alert_email
+terraform init
+terraform plan
+terraform apply
+```
+
+### Key Deployment Documents
+- [Deployment Architecture Decision](docs/PHASE_14_DEPLOYMENT_ARCHITECTURE_DECISION.md)
+- [Backup Strategy](docs/PHASE_14_BACKUP_STRATEGY.md)
+- [Disaster Recovery Drills](docs/PHASE_14_DISASTER_RECOVERY_DRILLS.md)
+- [Database Migration Strategy](docs/PHASE_14_DATABASE_MIGRATION_STRATEGY.md)
+- [Operational Runbooks](docs/PHASE_14_OPERATIONAL_RUNBOOKS.md)
+- [Capacity Planning](docs/PHASE_14_CAPACITY_PLANNING.md)
 
 ---
 

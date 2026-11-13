@@ -92,3 +92,4 @@ Retry-After: 42
 ## 5. Offline & High-Availability Resilience
 
 If the Redis cluster is unreachable or offline (e.g. during standalone testing), `SlidingWindowRateLimiter` seamlessly falls back to an in-memory thread-safe `deque` window protected by a reentrant mutex lock, logging a warning while maintaining continuous application availability.
+

@@ -70,3 +70,4 @@ This matrix aligns CharityChain's operational policies, technical implementation
 | **P2.1** | Choice & Consent | Donor choice to remain anonymous on public records | Default donor anonymity on certificates and listings | `backend/app/services/public_verification_service.py` |
 | **P3.1** | Geographic Privacy | Protection of vulnerable beneficiary locations | Centroid coarsening (~11.1 km radius) for sensitive sites | `backend/app/services/analytics/geographic_service.py` |
 | **P4.1** | Telemetry Privacy | Prevention of PII leakage in observability tools | Sentry recursive PII scrubber stripping all auth/PII | `backend/app/core/sentry.py` |
+

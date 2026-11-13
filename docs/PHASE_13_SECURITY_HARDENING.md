@@ -114,3 +114,4 @@ State-changing API calls (`POST`, `PUT`, `DELETE`, `PATCH`) in `frontend/app/api
    - `WEBHOOK_SIGNING_SECRET`: Minimum 32 bytes cryptographically random hex.
    - `ED25519_PRIVATE_KEY_B64`: 32-byte Ed25519 raw seed base64 encoded.
 3. **Environment Startup Validation**: Production startup validates that secrets are not default placeholders (e.g. `secret`, `change_me`, `test`).
+

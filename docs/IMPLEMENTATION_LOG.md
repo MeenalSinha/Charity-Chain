@@ -313,3 +313,39 @@
   - Verified clean Next.js production compilation (`npx next build`) generating 24 static and dynamic routes with 0 errors.
   - Created `frontend/Dockerfile` and added `frontend` service to `docker-compose.yml` (Port 3000).
   - Maintained full backward compatibility with legacy Streamlit interface (`app_ui.py`) as an auxiliary fallback.
+
+
+## Phase 13: Production Security, Compliance & Observability
+- **Status**: COMPLETED
+- **Key Changes**:
+  - Implemented Redis sliding-window rate limiter with in-memory fallback, RFC 6585 headers, and per-tier policies (Auth: 10/min, Financial: 20/min, Evidence: 30/min).
+  - Created sequential SHA-256 hash-chained `SecurityAuditEvent` model and service with tamper-evident chain verification.
+  - Added Alembic migration `012_phase13_security_audit_and_observability.py`.
+  - Mounted administrative security audit inspection and cryptographic verification endpoints in `backend/app/api/v1/admin.py`.
+  - Added Prometheus metrics collection (`/metrics`) and request timing middleware.
+  - Provisioned 5 Grafana dashboards for application health, financial operations, AI evidence, security telemetry, and communications.
+  - Initialized Sentry SDK with recursive PII/credential sanitization on backend and frontend.
+  - Authored SOC 2 Type II compliance control matrix and incident response plans.
+  - All 372 backend tests and 11 Vitest frontend tests passed with 100% pass rate.
+
+## Phase 14: Deployment, Production Readiness & Disaster Recovery
+- **Status**: COMPLETED
+- **Key Changes**:
+  - Conducted pre-Phase 14 verification audit: verified all Phase 13 controls and 372 baseline tests passing; fixed 5 container and docker-compose security gaps; published `docs/PRE_PHASE_14_VERIFICATION_REPORT.md`.
+  - Evaluated Cloud Run vs GKE vs ECS; formalized selection of Google Cloud Run in `docs/PHASE_14_DEPLOYMENT_ARCHITECTURE_DECISION.md`.
+  - Hardened `backend/Dockerfile` with multi-stage build, non-root user `charitychain` (UID 10001), production-only dependencies, and HEALTHCHECK.
+  - Hardened `frontend/Dockerfile` with standalone Next.js build and non-root `nextjs` user (UID 1001).
+  - Created `docker-compose.prod.yml` (no exposed database/Redis ports, mandatory secrets, nginx reverse proxy, restart: always) and `docker-compose.staging.yml`.
+  - Authored `.env.production.example` and `.env.staging.example`.
+  - Created `backend/app/core/startup_checks.py` implementing 9 production preflight security and configuration checks that fail-fast if critical settings are missing or insecure.
+  - Authored complete Terraform IaC in `infra/terraform/`: modules for networking, database (Cloud SQL PostgreSQL 16 regional HA), redis (Memorystore), storage, secrets, load balancing (Global HTTPS + Cloud Armor), monitoring, backend, and frontend; with environments for staging and production.
+  - Created GitHub Actions CI/CD pipelines: `ci.yml` (tests, lint, Bandit SAST, Docker build), `cd-staging.yml` (automated staging deployment), `cd-production.yml` (blue/green canary deployment with approval gate), and `security-scan.yml` (weekly vulnerability scans).
+  - Implemented automated backup scripts: `scripts/backup/backup_postgres.sh` (AES-256 GPG encryption, GCS upload, 90-day retention) and `scripts/backup/verify_backup.sh` (isolated restore and integrity verification).
+  - Documented backup strategy in `docs/PHASE_14_BACKUP_STRATEGY.md` with 5-min RPO / 1-hour RTO.
+  - Documented 9 disaster recovery drill procedures in `docs/PHASE_14_DISASTER_RECOVERY_DRILLS.md`.
+  - Documented database migration strategy in `docs/PHASE_14_DATABASE_MIGRATION_STRATEGY.md` and created `scripts/deploy/run_migrations.sh`.
+  - Authored 17 operational runbooks in `docs/PHASE_14_OPERATIONAL_RUNBOOKS.md`.
+  - Authored capacity planning and cost modeling in `docs/PHASE_14_CAPACITY_PLANNING.md`.
+  - Configured production Nginx reverse proxy with TLS termination, rate limiting, and security headers in `docker/nginx/nginx.prod.conf`.
+  - Authored 66 new tests across `tests/deployment/`, `tests/infrastructure/`, and `tests/disaster_recovery/`.
+  - Total automated test count increased from 372 to **438 tests** (100% passing).

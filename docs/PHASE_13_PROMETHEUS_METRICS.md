@@ -75,3 +75,4 @@ scrape_configs:
     static_configs:
       - targets: ["backend:8000"]
 ```
+

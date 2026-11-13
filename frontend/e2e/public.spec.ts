@@ -24,3 +24,4 @@ test.describe('Public Web Experience', () => {
     await expect(page.locator('header')).toBeVisible();
   });
 });
+

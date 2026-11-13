@@ -143,3 +143,27 @@ This document maintains an accurate, truthful record of functionality that is cu
   - Legacy Streamlit interface (`app_ui.py`) preserved as an auxiliary fallback.
 - **Boundaries Preserved**:
   - Advanced APM, Prometheus telemetry, and SOC2 compliance monitoring remain scheduled for Phase 13.
+
+
+## 13. Production Security, Compliance & Observability (Phase 13 Completed)
+- **Current Status**:
+  - Redis sliding-window rate limiter active with memory fallback, RFC 6585 headers, and per-tier policies.
+  - Sequential SHA-256 hash-chained `SecurityAuditEvent` model and service with verification APIs.
+  - Prometheus `/metrics` endpoint and 5 Grafana dashboards provisioned in Docker Compose.
+  - Zero-PII Sentry error tracking with recursive sanitization of credentials and personal identifiers.
+  - SOC 2 Type II compliance control matrix and incident response plans documented.
+- **Operational Disclosures**:
+  - In-memory rate limiting fallback operates per-replica and is not shared across multi-container clusters; Redis must remain available in production (`RATE_LIMIT_REDIS_REQUIRED=true`).
+  - Hash-chained audit log provides tamper-evidence within the database; immutable external checkpointing is achieved via periodic archival to versioned, locked Cloud Storage buckets.
+
+## 14. Deployment, Production Readiness & Disaster Recovery (Phase 14 Completed)
+- **Current Status**:
+  - Containerization: Multi-stage, non-root Docker builds for backend (`charitychain`, UID 10001) and frontend (`nextjs`, UID 1001) with explicit `HEALTHCHECK` directives.
+  - Production Compose: `docker-compose.prod.yml` isolates PostgreSQL and Redis from public host ports, disables debug mode, configures memory limits, and routes through an Nginx reverse proxy with TLS and security headers.
+  - Infrastructure as Code: Terraform modules defined for all GCP resources (Networking, Cloud SQL regional HA, Redis Memorystore, GCS buckets, Secret Manager, Cloud Run, Load Balancer with Cloud Armor, Cloud Monitoring).
+  - Continuous Delivery: GitHub Actions workflows for automated PR validation, continuous deployment to staging on `main` merge, and blue/green canary deployments to production on release tags.
+  - Disaster Recovery: Automated AES-256 encrypted backups via `scripts/backup/backup_postgres.sh`, isolated restore verification via `scripts/backup/verify_backup.sh`, 9 documented DR drill scenarios, and 17 operational runbooks.
+- **Operational Disclosures**:
+  - **Live PayPal Enablement**: `FEATURE_PAYPAL_LIVE_ENABLED` defaults to `false` in all environments. Enabling live payment processing requires explicit authorization and live credentials.
+  - **Terraform Cloud Validation**: Terraform templates are designed for Google Cloud Platform. Applying infrastructure requires valid GCP service account credentials and active billing.
+  - **Single Deployment Platform**: The primary production deployment target is Google Cloud Run with Cloud SQL. Alternative targets (Kubernetes/GKE, AWS ECS) are supported via the portable hardened Dockerfiles but have not been provisioned with separate IaC templates.

@@ -1,0 +1,147 @@
+# ============================================================
+# CharityChain — docker-compose.prod.yml
+# Production Docker Compose Overrides
+# Phase 14: No DEBUG, no exposed DB/Redis ports, hardened config
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# IMPORTANT: Set all required secrets in environment before running:
+#   - POSTGRES_PASSWORD (strong random, min 32 chars)
+#   - SECRET_KEY (min 64 hex chars)
+#   - ENCRYPTION_KEY (Fernet key, base64url)
+#   - JWT_SECRET_KEY (min 64 chars)
+#   - SENTRY_DSN
+#   - PAYPAL_CLIENT_ID / PAYPAL_CLIENT_SECRET
+#   - SMTP_USERNAME / SMTP_PASSWORD
+#   - GRAFANA_ADMIN_PASSWORD (strong random)
+# ============================================================
+
+version: '3.8'
+
+services:
+  postgres:
+    # Remove public port exposure in production
+    ports: !reset []
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+    # Production restart policy
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+
+  redis:
+    # Remove public port exposure in production
+    ports: !reset []
+    command:
+      - redis-server
+      - --requirepass
+      - ${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+      - --appendonly
+      - "yes"
+      - --maxmemory
+      - 512mb
+      - --maxmemory-policy
+      - allkeys-lru
+      - --bind
+      - 0.0.0.0
+      - --protected-mode
+      - "no"
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  backend:
+    environment:
+      - ENVIRONMENT=production
+      - DEBUG=false
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-charity_user}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-charitychain}
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:?ENCRYPTION_KEY must be set}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:?JWT_SECRET_KEY must be set}
+      - SENTRY_DSN=${SENTRY_DSN:?SENTRY_DSN must be set in production}
+      - PAYPAL_ENVIRONMENT=live
+      - PAYPAL_CLIENT_ID=${PAYPAL_CLIENT_ID:?PAYPAL_CLIENT_ID must be set}
+      - PAYPAL_CLIENT_SECRET=${PAYPAL_CLIENT_SECRET:?PAYPAL_CLIENT_SECRET must be set}
+      - SMTP_HOST=${SMTP_HOST:?SMTP_HOST must be set}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USERNAME=${SMTP_USERNAME:?SMTP_USERNAME must be set}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:?SMTP_PASSWORD must be set}
+      - RATE_LIMIT_REDIS_REQUIRED=true
+    # Expose backend only internally — not to host network
+    ports: !reset []
+    restart: always
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          memory: 1G
+      update_config:
+        order: start-first
+        failure_action: rollback
+
+  frontend:
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:?NEXT_PUBLIC_API_URL must be set}
+      - BACKEND_URL=http://backend:8000
+      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:?NEXT_PUBLIC_APP_URL must be set}
+      - NEXT_PUBLIC_SENTRY_DSN=${NEXT_PUBLIC_SENTRY_DSN:-}
+    restart: always
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          memory: 512M
+
+  prometheus:
+    # Prometheus should NOT be publicly accessible
+    ports: !reset []
+    restart: always
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=30d"
+      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+      - "--web.console.templates=/usr/share/prometheus/consoles"
+      - "--web.enable-lifecycle"
+
+  grafana:
+    # Grafana should be behind a reverse proxy in production
+    ports: !reset []
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD must be set}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_DOMAIN=${GRAFANA_DOMAIN:-localhost}
+      - GF_SERVER_ROOT_URL=https://${GRAFANA_DOMAIN:-localhost}/grafana/
+      - GF_SECURITY_COOKIE_SECURE=true
+      - GF_SECURITY_STRICT_TRANSPORT_SECURITY=true
+      - GF_ANALYTICS_REPORTING_ENABLED=false
+    restart: always
+
+  # Production: nginx reverse proxy (terminates TLS, routes traffic)
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: charitychain_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/certs:/etc/nginx/certs:ro
+      - nginx_logs:/var/log/nginx
+    depends_on:
+      - frontend
+      - backend
+      - grafana
+    restart: always
+
+volumes:
+  nginx_logs:
+

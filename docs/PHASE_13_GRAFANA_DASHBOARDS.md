@@ -53,3 +53,4 @@ Dashboards are stored as declarative JSON specifications, version-controlled, an
 | `BruteForceAuthSpike` | `rate(charitychain_rate_limit_hits_total{tier="auth"}[1m]) > 10` | `WARNING` | Check IP range for credential stuffing attack |
 | `DeadLetterEventsDetected` | `increase(charitychain_outbox_dead_letter_total[5m]) > 0` | `CRITICAL` | Inspect failing webhook subscriptions or SMTP sink |
 | `AuditChainTamperAlert` | Security audit verification endpoint returns `is_valid: false` | `P0 CATASTROPHIC` | Freeze admin access; initiate Incident Response Plan |
+

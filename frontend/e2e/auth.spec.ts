@@ -22,3 +22,4 @@ test.describe('Authentication Flows', () => {
     await expect(page.locator('button[type="submit"]')).toBeVisible();
   });
 });
+

@@ -49,3 +49,4 @@ CharityChain's observability framework is built upon four synchronized pillars:
 ## 5. Pillar 4: Tamper-Evident Security Audit Trail
 - Synchronously records security-critical actions (`AUTH_LOGIN_SUCCESS`, `AUTH_LOCKOUT`, `USER_ROLE_CHANGED`, `ADMIN_ACTION`).
 - Verifies integrity via sequential SHA-256 hash chaining, enabling automated non-repudiation verification.
+

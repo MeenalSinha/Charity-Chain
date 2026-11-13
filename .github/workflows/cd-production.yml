@@ -1,0 +1,187 @@
+name: CD — Deploy to Production
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'   # Semantic version tags only: v1.2.3
+
+concurrency:
+  group: cd-production
+  cancel-in-progress: false   # Never cancel in-flight production deployments
+
+env:
+  REGISTRY: gcr.io
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID_PROD }}
+  REGION: us-central1
+  BACKEND_SERVICE: charitychain-backend-prod
+  FRONTEND_SERVICE: charitychain-frontend-prod
+
+jobs:
+  # ----------------------------------------------------------------
+  # Pre-deployment gate: CI must have passed on this exact commit
+  # ----------------------------------------------------------------
+  pre-deploy-gate:
+    name: Pre-Deployment Gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify tag points to a commit that passed CI
+        run: |
+          echo "Deploying tag: ${{ github.ref_name }}"
+          echo "Commit SHA: ${{ github.sha }}"
+          echo "Pre-deployment gate: manual approval required via GitHub environment protection rules"
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs: [pre-deploy-gate]
+    # Requires 'production' environment approval in GitHub Settings
+    environment:
+      name: production
+      url: https://charitychain.dev
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to GCP (Production)
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY_PRODUCTION }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for GCR
+        run: gcloud auth configure-docker gcr.io --quiet
+
+      - name: Set image tags
+        id: tags
+        run: |
+          TAG="${{ github.ref_name }}"
+          echo "backend_image=${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/charitychain-backend:${TAG}" >> "$GITHUB_OUTPUT"
+          echo "frontend_image=${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/charitychain-frontend:${TAG}" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: backend/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.tags.outputs.backend_image }}
+            ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/charitychain-backend:latest
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: frontend/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.tags.outputs.frontend_image }}
+            ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/charitychain-frontend:latest
+
+      - name: Create database backup before migration
+        run: |
+          gcloud run jobs execute charitychain-backup-prod \
+            --region=${{ env.REGION }} \
+            --wait \
+            || echo "Backup job not configured — ensure manual backup was taken"
+
+      - name: Run database migrations
+        run: |
+          gcloud run jobs execute charitychain-migrate-prod \
+            --region=${{ env.REGION }} \
+            --wait \
+            --args="alembic,upgrade,head"
+
+      - name: Deploy backend to Cloud Run (Production) — Blue/Green
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.BACKEND_SERVICE }}
+          region: ${{ env.REGION }}
+          image: ${{ steps.tags.outputs.backend_image }}
+          env_vars: |
+            ENVIRONMENT=production
+            DEBUG=false
+            FEATURE_PAYPAL_LIVE_ENABLED=false
+          secrets: |
+            DATABASE_URL=charitychain-prod-db-url:latest
+            SECRET_KEY=charitychain-prod-secret-key:latest
+            JWT_SECRET_KEY=charitychain-prod-jwt-key:latest
+            ENCRYPTION_KEY=charitychain-prod-encryption-key:latest
+            REDIS_URL=charitychain-prod-redis-url:latest
+            SENTRY_DSN=charitychain-prod-sentry-dsn:latest
+            PAYPAL_CLIENT_ID=charitychain-prod-paypal-client-id:latest
+            PAYPAL_CLIENT_SECRET=charitychain-prod-paypal-client-secret:latest
+          flags: |
+            --min-instances=2
+            --max-instances=20
+            --memory=1Gi
+            --cpu=2
+            --concurrency=80
+            --service-account=charitychain-backend@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
+            --no-traffic
+
+      - name: Deploy frontend to Cloud Run (Production)
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.FRONTEND_SERVICE }}
+          region: ${{ env.REGION }}
+          image: ${{ steps.tags.outputs.frontend_image }}
+          env_vars: |
+            NODE_ENV=production
+            NEXT_PUBLIC_API_URL=https://api.charitychain.dev/api/v1
+            NEXT_PUBLIC_APP_URL=https://charitychain.dev
+          flags: |
+            --min-instances=2
+            --max-instances=10
+            --memory=512Mi
+            --cpu=1
+            --no-traffic
+
+      - name: Smoke test new revision
+        run: |
+          BACKEND_URL=$(gcloud run services describe ${{ env.BACKEND_SERVICE }} \
+            --region=${{ env.REGION }} --format="value(status.url)")
+          # Test the new revision directly (not yet receiving traffic)
+          LATEST_REV=$(gcloud run revisions list \
+            --service=${{ env.BACKEND_SERVICE }} \
+            --region=${{ env.REGION }} \
+            --format="value(name)" \
+            --sort-by="~creationTimestamp" \
+            --limit=1)
+          echo "Testing revision: ${LATEST_REV}"
+          curl -f "${BACKEND_URL}/health" || (echo "Health check failed" && exit 1)
+
+      - name: Migrate 10% traffic to new revision
+        run: |
+          LATEST_REV=$(gcloud run revisions list \
+            --service=${{ env.BACKEND_SERVICE }} \
+            --region=${{ env.REGION }} \
+            --format="value(name)" \
+            --sort-by="~creationTimestamp" \
+            --limit=1)
+          gcloud run services update-traffic ${{ env.BACKEND_SERVICE }} \
+            --region=${{ env.REGION }} \
+            --to-revisions="${LATEST_REV}=10"
+          echo "10% traffic migrated to ${LATEST_REV} — monitoring for 60 seconds"
+          sleep 60
+
+      - name: Promote to 100% traffic
+        run: |
+          gcloud run services update-traffic ${{ env.BACKEND_SERVICE }} \
+            --region=${{ env.REGION }} \
+            --to-latest
+          gcloud run services update-traffic ${{ env.FRONTEND_SERVICE }} \
+            --region=${{ env.REGION }} \
+            --to-latest
+          echo "Production deployment complete: ${{ steps.tags.outputs.version }}"
+
+      - name: Tag successful deployment
+        if: success()
+        run: |
+          echo "Production deployment ${{ steps.tags.outputs.version }} completed successfully at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+

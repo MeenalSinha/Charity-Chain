@@ -92,3 +92,4 @@ outbox_dead_letter_total = Counter(
 def get_latest_metrics() -> bytes:
     """Generates the latest Prometheus exposition metrics."""
     return generate_latest(REGISTRY)
+

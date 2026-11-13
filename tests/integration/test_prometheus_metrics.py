@@ -36,3 +36,4 @@ def test_metric_counter_increments():
     text = get_latest_metrics().decode("utf-8")
     assert 'charitychain_rate_limit_hits_total{tier="auth"}' in text
     assert 'charitychain_donations_captured_total{currency="USD"}' in text
+

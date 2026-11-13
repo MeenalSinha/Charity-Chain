@@ -1,0 +1,12 @@
+# ============================================================
+# production/terraform.tfvars.example
+# Copy to terraform.tfvars — NEVER COMMIT terraform.tfvars
+# ============================================================
+
+project_id    = "your-gcp-project-id"
+region        = "us-central1"
+domain        = "charitychain.dev"
+backend_image = "gcr.io/your-gcp-project-id/charitychain-backend:v1.0.0"
+frontend_image = "gcr.io/your-gcp-project-id/charitychain-frontend:v1.0.0"
+alert_email   = "ops@your-domain.com"
+

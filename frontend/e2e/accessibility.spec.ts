@@ -27,3 +27,4 @@ test.describe('WCAG 2.2 AA Accessibility Audits', () => {
     expect(seriousViolations).toEqual([]);
   });
 });
+

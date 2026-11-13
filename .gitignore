@@ -67,3 +67,24 @@ logs/*.log
 .DS_Store
 Thumbs.db
 
+
+# Phase 14 — Terraform secrets (never commit)
+infra/terraform/**/*.tfvars
+infra/terraform/**/.terraform/
+infra/terraform/**/.terraform.lock.hcl
+infra/terraform/**/terraform.tfstate
+infra/terraform/**/terraform.tfstate.backup
+
+# Production & staging env files (never commit actual values)
+.env.production
+.env.staging
+.env.local
+
+# Docker nginx TLS certificates (never commit)
+docker/nginx/certs/*.key
+docker/nginx/certs/*.crt
+docker/nginx/certs/*.pem
+
+# Backup encryption keys (never commit)
+backup-key*.txt
+*.gpg.key

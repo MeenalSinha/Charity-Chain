@@ -1,0 +1,5 @@
+project_id    = "your-gcp-staging-project-id"
+region        = "us-central1"
+backend_image = "gcr.io/your-gcp-staging-project-id/charitychain-backend:staging-latest"
+frontend_image = "gcr.io/your-gcp-staging-project-id/charitychain-frontend:staging-latest"
+

@@ -63,3 +63,4 @@ The security audit service exposes verification and inspection capabilities guar
 
 - `GET /api/v1/admin/security/audit-logs`: Paginated listing with filtering by `event_type`, `severity`, `user_id`, and date range.
 - `GET /api/v1/admin/security/audit-logs/verify`: Executes sequential hash verification across the audit chain and returns real-time validity status.
+

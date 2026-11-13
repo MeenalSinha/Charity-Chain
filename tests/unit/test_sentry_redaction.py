@@ -82,3 +82,4 @@ def test_before_send_filter_cleanses_full_event():
 
     # Breadcrumbs sanitized
     assert filtered["breadcrumbs"]["values"][0]["data"]["secret_token"] == "[REDACTED]"
+

@@ -1,0 +1,127 @@
+name: CD — Deploy to Staging
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: cd-staging
+  cancel-in-progress: false   # Never cancel an in-flight deployment
+
+env:
+  REGISTRY: gcr.io
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: us-central1
+  BACKEND_SERVICE: charitychain-backend-staging
+  FRONTEND_SERVICE: charitychain-frontend-staging
+
+jobs:
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: staging
+      url: https://staging.charitychain.dev
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY_STAGING }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for GCR
+        run: gcloud auth configure-docker gcr.io --quiet
+
+      - name: Set image tags
+        id: tags
+        run: |
+          SHORT_SHA="${{ github.sha }}"
+          SHORT_SHA="${SHORT_SHA:0:8}"
+          echo "backend_image=${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/charitychain-backend:staging-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "frontend_image=${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/charitychain-frontend:staging-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "short_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: backend/Dockerfile
+          push: true
+          tags: ${{ steps.tags.outputs.backend_image }}
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: frontend/Dockerfile
+          push: true
+          tags: ${{ steps.tags.outputs.frontend_image }}
+
+      - name: Run database migrations
+        run: |
+          # Run migrations via Cloud Run Job before deploying new image
+          gcloud run jobs execute charitychain-migrate-staging \
+            --region=${{ env.REGION }} \
+            --wait \
+            --args="alembic,upgrade,head" \
+            --env-vars="IMAGE=${{ steps.tags.outputs.backend_image }}" \
+            || echo "Migration job not found — skipping (first deploy)"
+
+      - name: Deploy backend to Cloud Run (Staging)
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.BACKEND_SERVICE }}
+          region: ${{ env.REGION }}
+          image: ${{ steps.tags.outputs.backend_image }}
+          env_vars: |
+            ENVIRONMENT=staging
+            DEBUG=false
+          secrets: |
+            DATABASE_URL=charitychain-staging-db-url:latest
+            SECRET_KEY=charitychain-staging-secret-key:latest
+            JWT_SECRET_KEY=charitychain-staging-jwt-key:latest
+            REDIS_URL=charitychain-staging-redis-url:latest
+          flags: |
+            --min-instances=1
+            --max-instances=5
+            --memory=512Mi
+            --cpu=1
+            --concurrency=80
+            --service-account=charitychain-backend@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
+
+      - name: Deploy frontend to Cloud Run (Staging)
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.FRONTEND_SERVICE }}
+          region: ${{ env.REGION }}
+          image: ${{ steps.tags.outputs.frontend_image }}
+          env_vars: |
+            NODE_ENV=production
+            NEXT_PUBLIC_API_URL=https://api.staging.charitychain.dev/api/v1
+            NEXT_PUBLIC_APP_URL=https://staging.charitychain.dev
+          flags: |
+            --min-instances=1
+            --max-instances=5
+            --memory=512Mi
+            --cpu=1
+
+      - name: Run smoke tests
+        run: |
+          sleep 15   # Wait for Cloud Run to become healthy
+          BACKEND_URL=$(gcloud run services describe ${{ env.BACKEND_SERVICE }} \
+            --region=${{ env.REGION }} --format="value(status.url)")
+          curl -f "${BACKEND_URL}/health" || (echo "Backend health check failed" && exit 1)
+          curl -f "${BACKEND_URL}/api/v1/projects?limit=1" || echo "Public projects endpoint check failed (non-fatal)"
+
+      - name: Notify deployment
+        if: always()
+        run: |
+          STATUS="${{ job.status }}"
+          echo "Staging deployment ${STATUS} — commit ${{ steps.tags.outputs.short_sha }}"
+

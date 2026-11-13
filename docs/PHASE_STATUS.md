@@ -284,3 +284,26 @@
 | **13.13** | Privacy, Incident Response & Vulnerability Policies | **COMPLETED** | Authored `docs/PHASE_13_PRIVACY_AND_DATA_GOVERNANCE.md`, `docs/PHASE_13_INCIDENT_RESPONSE_PLAN.md` with 5 containment runbooks, and `docs/PHASE_13_VULNERABILITY_MANAGEMENT.md`. |
 | **13.14** | Automated Testing & Regression Verification | **COMPLETED** | Authored 5 new test suites adding 15 tests. All 372 backend tests and 11 Vitest frontend tests passed with 100% pass rate; documented in `docs/PHASE_13_TEST_REPORT.md` and `docs/PHASE_13_COMPLETION_REPORT.md`. |
 
+---
+
+## Phase 14: Deployment, Production Readiness & Disaster Recovery
+
+| Task ID | Task Description | Status | Verification Note |
+|:---:|:---|:---:|:---|
+| **14.1** | Pre-Phase 14 Audit & Phase 13 Verification Gate | **COMPLETED** | Independently verified all Phase 13 security controls; executed 372 backend tests at 100% pass rate; fixed 5 container security gaps; authored `docs/PRE_PHASE_14_VERIFICATION_REPORT.md`. |
+| **14.2** | Deployment Architecture Decision | **COMPLETED** | Evaluated Cloud Run vs GKE vs ECS; selected Google Cloud Run for operational simplicity, scale-to-zero economics, and native GCP integration; documented in `docs/PHASE_14_DEPLOYMENT_ARCHITECTURE_DECISION.md`. |
+| **14.3** | Docker Hardening (Backend & Frontend) | **COMPLETED** | Rewrote `backend/Dockerfile` with multi-stage build, non-root `charitychain` user (UID 10001), production-only dependencies, and HEALTHCHECK; hardened `frontend/Dockerfile` with standalone output and non-root `nextjs` user. |
+| **14.4** | Production & Staging Docker Compose | **COMPLETED** | Created `docker-compose.prod.yml` (no exposed DB/Redis ports, mandatory secrets, nginx reverse proxy, restart: always) and `docker-compose.staging.yml` (sandbox PayPal, debug-accessible). |
+| **14.5** | Environment Separation | **COMPLETED** | Created `.env.production.example` and `.env.staging.example` with all required configuration fields; added `backend/app/core/startup_checks.py` with 9 production preflight checks. |
+| **14.6** | Infrastructure as Code (Terraform) | **COMPLETED** | Created `infra/terraform/` with GCS remote state, networking/database/redis/storage/secrets/load_balancing/monitoring/backend/frontend modules, and production/staging environment configs. |
+| **14.7** | GitHub Actions CI/CD Pipelines | **COMPLETED** | Created `.github/workflows/ci.yml` (backend tests, frontend tests, Bandit SAST, Docker build validation), `cd-staging.yml` (auto-deploy on main push), `cd-production.yml` (semantic version tags, blue/green, approval gate), and `security-scan.yml`. |
+| **14.8** | Automated Backup Strategy | **COMPLETED** | Implemented `scripts/backup/backup_postgres.sh` (pg_dump, AES-256 GPG, GCS upload, 90-day retention) and `scripts/backup/verify_backup.sh` (download, decrypt, restore, integrity checks); documented in `docs/PHASE_14_BACKUP_STRATEGY.md`. |
+| **14.9** | Disaster Recovery Drills | **COMPLETED** | Authored 9 DR drill procedures covering PITR restore, full backup restore, Redis failover, evidence recovery, signing key restore, service outage, DB connection exhaustion, PayPal outage, and security breach in `docs/PHASE_14_DISASTER_RECOVERY_DRILLS.md`. |
+| **14.10** | Database Migration Strategy | **COMPLETED** | Authored `docs/PHASE_14_DATABASE_MIGRATION_STRATEGY.md` with zero-downtime patterns, additive migration standards, emergency rollback procedures, and `scripts/deploy/run_migrations.sh`. |
+| **14.11** | Operational Runbooks | **COMPLETED** | Authored 17 runbooks in `docs/PHASE_14_OPERATIONAL_RUNBOOKS.md` covering all major incident types from 5xx errors to signing key recovery to live PayPal enablement. |
+| **14.12** | Capacity Planning | **COMPLETED** | Authored `docs/PHASE_14_CAPACITY_PLANNING.md` with traffic projections, Cloud Run sizing, database sizing, Redis sizing, storage sizing, and cost estimates for launch/growth/scale phases. |
+| **14.13** | Nginx Production Reverse Proxy | **COMPLETED** | Created `docker/nginx/nginx.prod.conf` with TLS termination, security headers (HSTS, CSP, X-Frame-Options), rate limiting, Grafana IP restriction, and Prometheus internal-only access. |
+| **14.14** | Production Startup Preflight Checks | **COMPLETED** | Implemented `backend/app/core/startup_checks.py` with 9 critical production checks (secret strength, SQLite guard, Sentry DSN, DEBUG flag, PayPal live guard, Redis required flag) that abort startup on failure. |
+| **14.15** | Phase 14 Automated Testing | **COMPLETED** | Authored 66 tests across `tests/deployment/` (25), `tests/infrastructure/` (10), and `tests/disaster_recovery/` (31). All 66 pass with 100% pass rate. Full regression suite: 438/438 passed. |
+| **14.16** | Documentation Completion | **COMPLETED** | Updated `README.md`, `docs/PHASE_STATUS.md`, `docs/DEVELOPMENT_ROADMAP.md`, `docs/ARCHITECTURE.md`, `docs/IMPLEMENTATION_LOG.md`, and `docs/KNOWN_LIMITATIONS.md`; authored `docs/PHASE_14_COMPLETION_REPORT.md`. |
+

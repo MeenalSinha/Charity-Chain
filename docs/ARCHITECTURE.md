@@ -212,3 +212,61 @@ sequenceDiagram
 - All state changes impacting milestones, verifications, and disbursements write append-only records to `audit_events`.
 - Records include cryptographic SHA-256 hashes of preceding records, actor UUIDs, timestamps, and before/after state snapshots.
 
+
+---
+
+## 8. Production Deployment & High Availability Architecture (Phase 14)
+
+### 8.1 Deployment Topology (Google Cloud Run + Cloud SQL)
+
+```mermaid
+flowchart TD
+    subgraph Internet
+        User[Browser / Mobile / Webhook]
+    end
+
+    subgraph GCP["Google Cloud Platform (us-central1)"]
+        LB["Global External HTTPS Load Balancer\n(Cloud Armor WAF + Rate Limiting)"]
+        
+        subgraph CloudRun["Serverless Container Tier (Cloud Run)"]
+            Frontend["Next.js 16 Frontend\n(Non-root: nextjs, 2-10 replicas)"]
+            Backend["FastAPI Backend\n(Non-root: charitychain, 2-20 replicas)"]
+        end
+
+        VPC["Serverless VPC Connector (10.8.0.0/28)"]
+
+        subgraph PrivateVPC["Private VPC Network (10.0.1.0/24)"]
+            DB["Cloud SQL PostgreSQL 16\n(Regional HA, Private IP, PITR)"]
+            Redis["Memorystore Redis 7\n(Standard HA, Sliding-Window Limiter)"]
+            Storage["Cloud Storage (GCS)\n(Evidence + Encrypted Backups)"]
+            SM["Secret Manager\n(Keys, Passwords, Certificates)"]
+        end
+
+        subgraph Monitoring["Observability Tier"]
+            CloudMon["Cloud Monitoring & Alerting"]
+            Prom["Prometheus (/metrics)"]
+            Graf["Grafana Telemetry Dashboards"]
+            Sentry["Sentry Zero-PII Tracing"]
+        end
+    end
+
+    User -->|HTTPS :443| LB
+    LB -->|/api/*| Backend
+    LB -->|/*| Frontend
+    Frontend -->|BFF API Calls| Backend
+    Backend --> VPC
+    VPC --> DB
+    VPC --> Redis
+    VPC --> Storage
+    VPC --> SM
+    Backend -.-> Sentry
+    Backend -.-> Prom
+    Prom --> Graf
+    CloudMon -.->|Alerts| Email[Ops On-Call]
+```
+
+### 8.2 Production Hardening Summary
+- **Multi-stage, Non-root Containers**: Both backend (`UID 10001 charitychain`) and frontend (`UID 1001 nextjs`) containers run without root privileges with minimal attack surfaces.
+- **Preflight Security Validation**: Application executes 9 preflight checks at startup (`startup_checks.py`), refusing to accept traffic in production if secrets are weak, placeholders exist, or debug flags are enabled.
+- **Zero-Downtime Blue/Green Deployments**: GitHub Actions workflows utilize Cloud Run revision traffic-splitting (canary 10% → promote 100%) with automated rollbacks.
+- **RPO/RTO Guarantees**: PostgreSQL Point-in-Time Recovery provides 5-minute RPO and 1-hour RTO; nightly AES-256 encrypted GCS backups with automated restore verification.

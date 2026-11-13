@@ -129,3 +129,4 @@ Every `SecurityAuditEvent` record computes:
 $$\text{event\_hash} = \text{SHA-256}(\text{previous\_hash} + \text{event\_type} + \text{user\_id} + \text{timestamp} + \text{payload\_json})$$
 
 The genesis record uses `GENESIS_SECURITY_AUDIT_BLOCK`. Any retroactive modification, deletion, or insertion breaks the chain and is flagged immediately by automated integrity audits.
+
