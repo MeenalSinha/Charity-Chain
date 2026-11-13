@@ -80,7 +80,11 @@ jobs:
               tree = ET.parse(f)
               for tc in tree.iter('testcase'):
                   for fail in tc.iter('failure'):
-                      out.append(f'- **FAILED**: {tc.attrib.get(\"classname\")}::{tc.attrib.get(\"name\")}')
+                      classname = tc.attrib.get('classname', '')
+                      name = tc.attrib.get('name', '')
+                      first_line = (fail.text or '').strip().splitlines()[0] if fail.text else 'Failed'
+                      print(f'::error title={classname}.{name}::{first_line}')
+                      out.append(f'- **FAILED**: {classname}::{name}')
                       out.append(f'```\n{fail.text[:500] if fail.text else \"\"}\n```')
           content = '\n'.join(out)
           print(content)
@@ -126,10 +130,9 @@ jobs:
       - name: TypeScript check
         run: |
           pnpm run type-check || {
-            echo "### TypeScript Check Output" >> "$GITHUB_STEP_SUMMARY"
-            echo '```' >> "$GITHUB_STEP_SUMMARY"
-            pnpm exec tsc --noEmit 2>&1 | head -n 50 >> "$GITHUB_STEP_SUMMARY" || true
-            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            pnpm exec tsc --noEmit 2>&1 | while IFS= read -r line; do
+              echo "::error::$line"
+            done
             exit 1
           }
 
