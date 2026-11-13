@@ -54,7 +54,7 @@ jobs:
 
       - name: Run tests
         env:
-          ENVIRONMENT: test
+          ENVIRONMENT: testing
           DATABASE_URL: sqlite:///./ci_test.db
           REDIS_URL: redis://localhost:6379/0
           SECRET_KEY: test-secret-key-at-least-64-hex-chars-for-ci-testing-00000000000000
