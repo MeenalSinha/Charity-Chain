@@ -55,7 +55,7 @@ jobs:
       - name: Run tests
         env:
           ENVIRONMENT: testing
-          DATABASE_URL: sqlite:///./ci_test.db
+          DATABASE_URL: sqlite+aiosqlite:///./ci_test.db
           REDIS_URL: redis://localhost:6379/0
           SECRET_KEY: test-secret-key-at-least-64-hex-chars-for-ci-testing-00000000000000
           JWT_SECRET_KEY: test-jwt-key-at-least-64-hex-chars-for-ci-testing-000000000000000
@@ -72,14 +72,21 @@ jobs:
         if: failure()
         run: |
           python -c "
-          import xml.etree.ElementTree as ET, glob
+          import xml.etree.ElementTree as ET, glob, os
+          summary_file = os.environ.get('GITHUB_STEP_SUMMARY')
+          out = []
           for f in glob.glob('test-results/*.xml'):
-              print('=== XML:', f)
+              out.append(f'### Test Results: {f}')
               tree = ET.parse(f)
               for tc in tree.iter('testcase'):
                   for fail in tc.iter('failure'):
-                      print('FAILED:', tc.attrib.get('classname'), tc.attrib.get('name'))
-                      print(fail.text[:1000] if fail.text else 'No text')
+                      out.append(f'- **FAILED**: {tc.attrib.get(\"classname\")}::{tc.attrib.get(\"name\")}')
+                      out.append(f'```\n{fail.text[:500] if fail.text else \"\"}\n```')
+          content = '\n'.join(out)
+          print(content)
+          if summary_file and out:
+              with open(summary_file, 'a') as sf:
+                  sf.write(content + '\n')
           " || true
 
       - name: Upload test results
