@@ -60,6 +60,7 @@ class Project(Base):
     latitude = Column(Float, nullable=True)
     longitude = Column(Float, nullable=True)
     radius_meters = Column(Float, nullable=False, default=1000.0)
+    is_location_sensitive = Column(Boolean, default=False, nullable=False)
 
     # Lifecycle & Audit Tracking
     creator_id = Column(String(36), ForeignKey("users.id"), nullable=True)
@@ -109,6 +110,7 @@ class Milestone(Base):
     latitude = Column(Float, nullable=True)
     longitude = Column(Float, nullable=True)
     radius_meters = Column(Float, nullable=False, default=1000.0)
+    is_location_sensitive = Column(Boolean, default=False, nullable=False)
     address = Column(String(255), nullable=True)
     city = Column(String(100), nullable=True)
     country = Column(String(3), nullable=True)

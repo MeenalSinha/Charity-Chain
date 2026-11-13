@@ -67,6 +67,14 @@ from backend.app.db.models.financial import (
 )
 from backend.app.db.models.ledger import LedgerAccount, JournalEntry, JournalLine
 from backend.app.integrations.storage.local import LocalStorageProvider
+from backend.app.services.analytics import (
+    PlatformAnalyticsService, NGOAnalyticsService, DonorAnalyticsService,
+    PublicTransparencyService, GeographicAnalyticsService, AnalyticsExportService,
+    MetricDefinitionService
+)
+from backend.app.db.models.analytics import (
+    AnalyticsSnapshot, AnalyticsExportJob, PublicTransparencyPublication
+)
 
 
 # ============================================================================
@@ -118,37 +126,34 @@ def page_home():
     
     st.markdown("---")
     
-    # Platform Statistics
+    # Platform Statistics (Authoritative PostgreSQL Domain Models)
     st.subheader("📈 Live Platform Overview")
     
-    # Try fetching database-backed counts
-    db_projects_count = 0
-    db_orgs_count = 0
-    try:
-        with SessionFactory() as db:
-            from backend.app.db.models.projects import Project
-            from backend.app.db.models.users import Organization
-            from sqlalchemy import select, func
-            db_projects_count = db.scalar(select(func.count(Project.id))) or 0
-            db_orgs_count = db.scalar(select(func.count(Organization.id))) or 0
-    except Exception:
-        pass
-
-    db: DatabaseManager = st.session_state.db
-    milestones = db.get_all_milestones()
-    donations = db.donations.all() if (db.db is not None and db.donations is not None) else []
+    total_projects = 0
+    total_captured_formatted = "$0.00"
+    completed_milestones = 0
+    verified_orgs = 0
     
+    try:
+        with SessionFactory() as db_session:
+            overview = PlatformAnalyticsService.get_platform_overview(db_session)
+            total_projects = overview["projects"]["total"]
+            total_captured_formatted = overview["financial"]["captured_formatted"]
+            completed_milestones = overview["milestones"]["completed"]
+            verified_orgs = overview["organizations"]["verified"]
+    except Exception:
+        db_mgr: DatabaseManager = st.session_state.db
+        total_projects = len(db_mgr.get_all_milestones()) if db_mgr else 0
+
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.metric("Total Projects", max(len(milestones), db_projects_count))
+        st.metric("Total Projects", total_projects)
     with col2:
-        total_raised = sum(d.get('amount', 0) for d in donations) / 10**18
-        st.metric("Total Raised", f"{total_raised:.4f} ETH")
+        st.metric("Total Captured", total_captured_formatted)
     with col3:
-        completed = len([m for m in milestones if m.get('status') == 'RELEASED'])
-        st.metric("Completed Milestones", completed)
+        st.metric("Completed Milestones", completed_milestones)
     with col4:
-        st.metric("Verified NGOs", db_orgs_count)
+        st.metric("Verified NGOs", verified_orgs)
     
     st.markdown("---")
     st.info("💡 **CharityChain Workflow:** Donors fund milestones ➔ NGOs submit photographic evidence ➔ AI analyzes authenticity ➔ Reviewers approve ➔ Funds released ➔ Donors receive Proof-of-Impact certificates.")
@@ -1673,92 +1678,155 @@ def page_donor_dashboard():
         st.metric("Net Impact Funding", f"${net_minor/100:,.2f}")
 
     st.markdown("---")
-    st.subheader(f"📜 Contribution Records ({total_count})")
+    tab_records, tab_journey, tab_annual = st.tabs([
+        "📜 Contributions & Receipts",
+        "🌟 Personal Impact Journey",
+        "📄 Annual Giving Report"
+    ])
 
-    if not donations:
-        st.info("You haven't made any contributions yet. Explore verified projects to get started!")
-        return
+    with tab_records:
+        st.subheader(f"📜 Contribution Records ({total_count})")
 
-    for don in donations:
-        with SessionFactory() as db:
-            from backend.app.db.models.projects import Project, Milestone
-            from backend.app.db.models.financial import PaymentOrder, PaymentCapture, PaymentRefund
-            proj = db.execute(select(Project).where(Project.id == don.project_id)).scalar_one_or_none()
-            ms = db.execute(select(Milestone).where(Milestone.id == don.milestone_id)).scalar_one_or_none()
-            p_order = db.execute(select(PaymentOrder).where(PaymentOrder.donation_id == don.id)).scalar_one_or_none()
-            p_capture = db.execute(select(PaymentCapture).where(PaymentCapture.order_id == p_order.id)).scalar_one_or_none() if p_order else None
-            refunds = db.execute(select(PaymentRefund).where(PaymentRefund.capture_id == p_capture.id)).scalars().all() if p_capture else []
+        if not donations:
+            st.info("You haven't made any contributions yet. Explore verified projects to get started!")
+        else:
+            for don in donations:
+                with SessionFactory() as db:
+                    from backend.app.db.models.projects import Project, Milestone
+                    from backend.app.db.models.financial import PaymentOrder, PaymentCapture, PaymentRefund
+                    proj = db.execute(select(Project).where(Project.id == don.project_id)).scalar_one_or_none()
+                    ms = db.execute(select(Milestone).where(Milestone.id == don.milestone_id)).scalar_one_or_none()
+                    p_order = db.execute(select(PaymentOrder).where(PaymentOrder.donation_id == don.id)).scalar_one_or_none()
+                    p_capture = db.execute(select(PaymentCapture).where(PaymentCapture.order_id == p_order.id)).scalar_one_or_none() if p_order else None
+                    refunds = db.execute(select(PaymentRefund).where(PaymentRefund.capture_id == p_capture.id)).scalars().all() if p_capture else []
 
-        badge_color = "green" if don.status == DonationStatus.PAID else ("orange" if don.status == DonationStatus.PAYMENT_PENDING else ("blue" if "REFUND" in don.status.value else "red"))
-        card_title = f"🏷️ {proj.title if proj else 'Unknown Project'} — ${don.amount_minor_units/100:,.2f} {don.currency} [{don.status.value}]"
+                badge_color = "green" if don.status == DonationStatus.PAID else ("orange" if don.status == DonationStatus.PAYMENT_PENDING else ("blue" if "REFUND" in don.status.value else "red"))
+                card_title = f"🏷️ {proj.title if proj else 'Unknown Project'} — ${don.amount_minor_units/100:,.2f} {don.currency} [{don.status.value}]"
 
-        with st.expander(card_title, expanded=(don.status == DonationStatus.PAID)):
-            c_left, c_right = st.columns([2, 1])
-            with c_left:
-                st.markdown(f"**Target Milestone:** #{ms.sequence_number if ms else '?'}: {ms.title if ms else 'General'}")
-                st.markdown(f"**Donation Reference:** `{don.id}`")
-                if p_order and p_order.provider_order_id:
-                    st.markdown(f"**PayPal Order ID:** `{p_order.provider_order_id}`")
-                if p_capture and p_capture.provider_capture_id:
-                    st.markdown(f"**Provider Capture ID:** `{p_capture.provider_capture_id}`")
-                st.caption(f"Created: {don.created_at.strftime('%Y-%m-%d %H:%M UTC') if don.created_at else 'N/A'}")
+                with st.expander(card_title, expanded=(don.status == DonationStatus.PAID)):
+                    c_left, c_right = st.columns([2, 1])
+                    with c_left:
+                        st.markdown(f"**Target Milestone:** #{ms.sequence_number if ms else '?'}: {ms.title if ms else 'General'}")
+                        st.markdown(f"**Donation Reference:** `{don.id}`")
+                        if p_order and p_order.provider_order_id:
+                            st.markdown(f"**PayPal Order ID:** `{p_order.provider_order_id}`")
+                        if p_capture and p_capture.provider_capture_id:
+                            st.markdown(f"**Provider Capture ID:** `{p_capture.provider_capture_id}`")
+                        st.caption(f"Created: {don.created_at.strftime('%Y-%m-%d %H:%M UTC') if don.created_at else 'N/A'}")
 
-            with c_right:
-                st.metric("Amount", f"${don.amount_minor_units/100:,.2f} {don.currency}")
-                st.markdown(f"**Status:** `{don.status.value}`")
+                    with c_right:
+                        st.metric("Amount", f"${don.amount_minor_units/100:,.2f} {don.currency}")
+                        st.markdown(f"**Status:** `{don.status.value}`")
 
-            # Show existing refunds
-            if refunds:
-                st.markdown("##### 💸 Processed Refunds")
-                for r in refunds:
-                    st.markdown(f"- **${r.amount_minor_units/100:,.2f} {r.currency}** — *{r.reason}* (`{r.provider_refund_id}`)")
+                    # Show existing refunds
+                    if refunds:
+                        st.markdown("##### 💸 Processed Refunds")
+                        for r in refunds:
+                            st.markdown(f"- **${r.amount_minor_units/100:,.2f} {r.currency}** — *{r.reason}* (`{r.provider_refund_id}`)")
 
-            # Refund Request Form for PAID or PARTIALLY_REFUNDED donations
-            if don.status in (DonationStatus.PAID, DonationStatus.PARTIALLY_REFUNDED) and p_capture:
-                already_ref = sum(r.amount_minor_units for r in refunds if r.status == PaymentRefundStatus.COMPLETED)
-                remaining_ref = p_capture.amount_minor_units - already_ref
+                    # Refund Request Form for PAID or PARTIALLY_REFUNDED donations
+                    if don.status in (DonationStatus.PAID, DonationStatus.PARTIALLY_REFUNDED) and p_capture:
+                        already_ref = sum(r.amount_minor_units for r in refunds if r.status == PaymentRefundStatus.COMPLETED)
+                        remaining_ref = p_capture.amount_minor_units - already_ref
 
-                if remaining_ref > 0:
-                    with st.expander("🔄 Request Full or Partial Refund"):
-                        with st.form(f"refund_form_{don.id}"):
-                            max_val = float(remaining_ref / 100.0)
-                            ref_amt = st.number_input(
-                                f"Refund Amount ({don.currency}) - Max: ${max_val:,.2f}",
-                                min_value=1.0,
-                                max_value=max_val,
-                                value=max_val,
-                                step=5.0,
-                                key=f"ref_amt_{don.id}"
-                            )
-                            ref_reason = st.text_input(
-                                "Reason for Refund *",
-                                value="Donor requested refund",
-                                key=f"ref_rsn_{don.id}"
-                            )
-                            btn_ref = st.form_submit_button("Submit Refund Request", type="primary")
+                        if remaining_ref > 0:
+                            with st.expander("🔄 Request Full or Partial Refund"):
+                                with st.form(f"refund_form_{don.id}"):
+                                    max_val = float(remaining_ref / 100.0)
+                                    ref_amt = st.number_input(
+                                        f"Refund Amount ({don.currency}) - Max: ${max_val:,.2f}",
+                                        min_value=1.0,
+                                        max_value=max_val,
+                                        value=max_val,
+                                        step=5.0,
+                                        key=f"ref_amt_{don.id}"
+                                    )
+                                    ref_reason = st.text_input(
+                                        "Reason for Refund *",
+                                        value="Donor requested refund",
+                                        key=f"ref_rsn_{don.id}"
+                                    )
+                                    btn_ref = st.form_submit_button("Submit Refund Request", type="primary")
 
-                            if btn_ref:
-                                if not ref_reason:
-                                    st.error("Please provide a reason for the refund.")
-                                else:
-                                    with st.spinner("Processing refund with PayPal..."):
-                                        try:
-                                            with SessionFactory() as db_ref:
-                                                ref_res = asyncio.run(
-                                                    srv.process_refund(
-                                                        db=db_ref,
-                                                        donation_id=don.id,
-                                                        amount_minor_units=int(ref_amt * 100),
-                                                        reason=ref_reason,
-                                                        actor_id=user_id,
-                                                        is_admin=False
-                                                    )
-                                                )
-                                            st.success(f"✅ Refund of ${ref_amt:,.2f} processed successfully! Refund ID: `{ref_res['provider_refund_id']}`")
-                                            time.sleep(1.5)
-                                            st.rerun()
-                                        except Exception as exc:
-                                            st.error(f"Refund failed: {exc}")
+                                    if btn_ref:
+                                        if not ref_reason:
+                                            st.error("Please provide a reason for the refund.")
+                                        else:
+                                            with st.spinner("Processing refund with PayPal..."):
+                                                try:
+                                                    with SessionFactory() as db_ref:
+                                                        ref_res = asyncio.run(
+                                                            srv.process_refund(
+                                                                db=db_ref,
+                                                                donation_id=don.id,
+                                                                amount_minor_units=int(ref_amt * 100),
+                                                                reason=ref_reason,
+                                                                actor_id=user_id,
+                                                                is_admin=False
+                                                            )
+                                                        )
+                                                    st.success(f"✅ Refund of ${ref_amt:,.2f} processed successfully! Refund ID: `{ref_res['provider_refund_id']}`")
+                                                    time.sleep(1.5)
+                                                    st.rerun()
+                                                except Exception as exc:
+                                                    st.error(f"Refund failed: {exc}")
+
+    with tab_journey:
+        st.subheader("🌟 Contribution-to-Impact Journey")
+        st.write("Track how your contributions directly support verified real-world milestones and yield cryptographic proof-of-impact certificates.")
+        try:
+            with SessionFactory() as db_session:
+                journeys = DonorAnalyticsService.get_personal_impact_journey(db_session, user_id)
+            if not journeys:
+                st.info("No verified impact journeys recorded yet.")
+            else:
+                for j in journeys:
+                    with st.container():
+                        st.markdown(f"#### 🎗️ {j['project']['title']} — {j['amount_formatted']}")
+                        st.write(f"**Target Milestone:** #{j['milestone']['sequence_number']}: {j['milestone']['title']} ({j['milestone']['status']})")
+                        c1, c2, c3 = st.columns(3)
+                        with c1:
+                            st.caption(f"Donated: {j['donated_at'][:10] if j['donated_at'] else 'N/A'}")
+                        with c2:
+                            st.caption(f"Evidence: {'✅ Submitted (' + str(j['evidence_count']) + ' files)' if j['evidence_submitted'] else '⏳ Awaiting evidence'}")
+                        with c3:
+                            if j['certificate']['has_certificate']:
+                                st.success(f"🎓 Certificate #{j['certificate']['certificate_code']}")
+                            else:
+                                st.caption("Status: In progress")
+                        st.markdown("---")
+        except Exception as e:
+            st.error(f"Error loading impact journey: {e}")
+
+    with tab_annual:
+        st.subheader("📄 Annual Charitable Contribution Statement")
+        col_y, col_dl = st.columns([1, 2])
+        with col_y:
+            selected_year = st.selectbox("Tax Year", [2026, 2025, 2024], index=0)
+        
+        try:
+            with SessionFactory() as db_session:
+                annual_rep = DonorAnalyticsService.generate_annual_giving_report(db_session, user_id, selected_year)
+                donor_csv = AnalyticsExportService.export_donor_contributions_csv(db_session, user_id)
+            
+            st.metric("Total Annual Giving", annual_rep["total_contributions_formatted"])
+            st.caption(f"Total Contributions in {selected_year}: {annual_rep['donation_count']}")
+            
+            with col_dl:
+                st.download_button(
+                    label="📥 Download CSV Contribution Statement",
+                    data=donor_csv,
+                    file_name=f"charitychain_annual_giving_{user_id[:8]}_{selected_year}.csv",
+                    mime="text/csv"
+                )
+            
+            st.info(f"⚖️ **Disclaimer:** {annual_rep['tax_disclaimer']}")
+            if annual_rep["contributions"]:
+                st.table(annual_rep["contributions"])
+            else:
+                st.caption(f"No contributions recorded for calendar year {selected_year}.")
+        except Exception as e:
+            st.error(f"Error generating annual statement: {e}")
 
 
 
@@ -2613,6 +2681,437 @@ def page_notifications_and_webhooks():
 
 
 # ============================================================================
+# PAGE: ANALYTICS & IMPACT INTELLIGENCE (Phase 11)
+# ============================================================================
+
+def page_analytics():
+    """Authoritative platform analytics, NGO performance, and administrative health."""
+    st.header("📊 Analytics & Impact Intelligence")
+    st.markdown("Authoritative financial metrics, NGO milestone progression, and platform health backed by PostgreSQL domain models.")
+
+    user_id, role, full_name, email = get_current_user_info()
+
+    tab_ngo, tab_platform, tab_admin = st.tabs([
+        "🏢 NGO Analytics",
+        "📈 Platform Overview",
+        "⚙️ Administrator Health"
+    ])
+
+    with tab_ngo:
+        st.subheader("🏢 Organization Impact & Funding Analytics")
+        with SessionFactory() as db_session:
+            from backend.app.db.models.users import Organization, OrganizationMembership
+            from sqlalchemy import select
+            
+            if role in ["PLATFORM_ADMIN", "Admin", "Platform Administrator"]:
+                orgs = db_session.scalars(select(Organization)).all()
+            elif user_id and user_id != "demo_user":
+                orgs = db_session.scalars(
+                    select(Organization)
+                    .join(OrganizationMembership, Organization.id == OrganizationMembership.organization_id)
+                    .where(OrganizationMembership.user_id == user_id)
+                ).all()
+            else:
+                orgs = db_session.scalars(select(Organization)).all()
+
+            if not orgs:
+                st.info("No registered organizations found. Please register an organization to view NGO analytics.")
+            else:
+                org_options = {o.name: o.id for o in orgs}
+                selected_org_name = st.selectbox("Select Organization", list(org_options.keys()))
+                selected_org_id = org_options[selected_org_name]
+
+                try:
+                    overview = NGOAnalyticsService.get_ngo_overview(db_session, selected_org_id)
+                    funding = NGOAnalyticsService.get_funding_analytics(db_session, selected_org_id)
+                    projects = NGOAnalyticsService.get_project_performance(db_session, selected_org_id)
+                    evidence_stats = NGOAnalyticsService.get_evidence_and_verification_analytics(db_session, selected_org_id)
+
+                    # Top KPI Cards
+                    k1, k2, k3, k4 = st.columns(4)
+                    with k1:
+                        st.metric("Total Captured", overview["financial"]["total_captured_formatted"])
+                    with k2:
+                        st.metric("Net Funding", overview["financial"]["net_funding_formatted"])
+                    with k3:
+                        st.metric("Confirmed Payouts", overview["financial"]["disbursed_formatted"])
+                    with k4:
+                        st.metric("Available Balance", overview["financial"]["available_funds_formatted"])
+
+                    st.markdown("---")
+                    p1, p2, p3, p4 = st.columns(4)
+                    with p1:
+                        st.metric("Active Projects", overview["projects"]["active"])
+                    with p2:
+                        st.metric("Completed Projects", overview["projects"]["completed"])
+                    with p3:
+                        st.metric("Completed Milestones", overview["milestones"]["completed"])
+                    with p4:
+                        st.metric("Verified Milestones", overview["milestones"]["verified"])
+
+                    st.markdown("---")
+                    c_left, c_right = st.columns([1, 1])
+
+                    with c_left:
+                        st.subheader("🎯 Donation Size Distribution")
+                        dist = funding.get("size_distribution", {})
+                        if any(dist.values()):
+                            labels = ["< $25", "$25-$100", "$100-$500", "> $500"]
+                            values = [dist.get("under_25", 0), dist.get("25_to_100", 0), dist.get("100_to_500", 0), dist.get("over_500", 0)]
+                            fig_pie = go.Figure(data=[go.Pie(labels=labels, values=values, hole=0.4)])
+                            fig_pie.update_layout(height=320, margin=dict(t=20, b=20, l=20, r=20))
+                            st.plotly_chart(fig_pie, use_container_width=True)
+                        else:
+                            st.info("No donation distribution data recorded yet.")
+
+                    with c_right:
+                        st.subheader("🤖 Evidence & Verification Status")
+                        ev_c1, ev_c2 = st.columns(2)
+                        with ev_c1:
+                            st.metric("Evidence Uploaded", evidence_stats["evidence_files_submitted"])
+                            st.metric("Review Cases", evidence_stats["review_cases_total"])
+                        with ev_c2:
+                            st.metric("Human Approved", evidence_stats["approved"])
+                            st.metric("Approval Rate", f"{evidence_stats['approval_rate']}%")
+
+                    st.markdown("---")
+                    st.subheader("📋 Project Performance & Progress")
+                    if projects:
+                        st.dataframe(projects, use_container_width=True)
+                    else:
+                        st.info("No active projects for this organization.")
+
+                    # Report Export
+                    st.markdown("---")
+                    st.subheader("📥 Export Impact & Performance Reports")
+                    exp_col1, exp_col2 = st.columns([1, 1])
+                    with exp_col1:
+                        csv_data = AnalyticsExportService.export_ngo_projects_csv(db_session, selected_org_id)
+                        st.download_button(
+                            label="📥 Download Projects CSV Report",
+                            data=csv_data,
+                            file_name=f"charitychain_ngo_projects_{selected_org_id[:8]}.csv",
+                            mime="text/csv"
+                        )
+                    with exp_col2:
+                        report_data = NGOAnalyticsService.generate_impact_report(db_session, selected_org_id)
+                        text_report = AnalyticsExportService.generate_formatted_report_text(
+                            report_title=f"Organization Impact Report - {selected_org_name}",
+                            organization_or_donor=selected_org_name,
+                            metrics={
+                                "Total Captured Funding": overview["financial"]["total_captured_formatted"],
+                                "Net Funding": overview["financial"]["net_funding_formatted"],
+                                "Confirmed Payouts": overview["financial"]["disbursed_formatted"],
+                                "Active Projects": overview["projects"]["active"],
+                                "Completed Projects": overview["projects"]["completed"],
+                                "Verified Milestones": overview["milestones"]["verified"],
+                                "Evidence Files Submitted": evidence_stats["evidence_files_submitted"]
+                            },
+                            disclaimer=report_data["disclaimer"]
+                        )
+                        st.download_button(
+                            label="📄 Download Formatted Impact Report (TXT)",
+                            data=text_report,
+                            file_name=f"charitychain_impact_report_{selected_org_id[:8]}.txt",
+                            mime="text/plain"
+                        )
+
+                except Exception as e:
+                    st.error(f"Error loading NGO analytics: {e}")
+
+    with tab_platform:
+        st.subheader("📈 Platform-Wide KPIs & Operational Metrics")
+        try:
+            with SessionFactory() as db_session:
+                overview = PlatformAnalyticsService.get_platform_overview(db_session)
+
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Registered Users", overview["users"]["total"])
+                st.caption(f"Active Users: {overview['users']['active']}")
+            with col2:
+                st.metric("Total Projects", overview["projects"]["total"])
+                st.caption(f"Active: {overview['projects']['active']} | Completed: {overview['projects']['completed']}")
+            with col3:
+                st.metric("Verified NGOs", overview["organizations"]["verified"])
+                st.caption(f"Total Listed: {overview['organizations']['total']}")
+            with col4:
+                st.metric("Total Captured", overview["financial"]["captured_formatted"])
+                st.caption(f"Net: {overview['financial']['net_funding_formatted']}")
+
+            st.markdown("---")
+            # Visual Financial Flow
+            st.subheader("💳 Financial Operations Breakdown")
+            fin = overview["financial"]
+            categories = ["Gross Captured", "Refunds", "Net Funding", "Confirmed Disbursements"]
+            amounts = [fin["captured_cents"] / 100.0, fin["refunded_cents"] / 100.0, fin["net_funding_cents"] / 100.0, fin["disbursed_cents"] / 100.0]
+
+            fig_bar = go.Figure(data=[
+                go.Bar(
+                    x=categories,
+                    y=amounts,
+                    marker_color=["#2b6cb0", "#e53e3e", "#319795", "#805ad5"],
+                    text=[f"${a:,.2f}" for a in amounts],
+                    textposition="auto"
+                )
+            ])
+            fig_bar.update_layout(
+                title="Platform Financial Lifecycle ($ USD)",
+                yaxis_title="Amount ($ USD)",
+                height=380,
+                margin=dict(t=40, b=20, l=40, r=20)
+            )
+            st.plotly_chart(fig_bar, use_container_width=True)
+
+            c1, c2 = st.columns(2)
+            with c1:
+                st.metric("Proof-of-Impact Certificates Issued", overview["impact"]["certificates_issued"])
+            with c2:
+                st.metric("Transactional Notifications Dispatched", overview["impact"]["notifications_processed"])
+
+        except Exception as e:
+            st.error(f"Error loading platform analytics: {e}")
+
+    with tab_admin:
+        st.subheader("⚙️ Administrator Telemetry & Financial Health")
+        try:
+            with SessionFactory() as db_session:
+                fin_ops = PlatformAnalyticsService.get_financial_operations_analytics(db_session)
+                rev_ops = PlatformAnalyticsService.get_review_and_verification_analytics(db_session)
+
+            st.markdown("#### ⚖️ Financial Ledger & Trial Balance Verification")
+            ldg = fin_ops["financial_ledger_integrity"]
+            bal_col1, bal_col2, bal_col3 = st.columns(3)
+            with bal_col1:
+                st.metric("Total Debits", f"${ldg['total_debits_cents']/100:,.2f}")
+            with bal_col2:
+                st.metric("Total Credits", f"${ldg['total_credits_cents']/100:,.2f}")
+            with bal_col3:
+                if ldg["is_balanced"]:
+                    st.success("✅ Ledger Balanced (0 Discrepancy)")
+                else:
+                    st.error(f"❌ Imbalance: ${ldg['discrepancy_cents']/100:,.2f}")
+
+            st.markdown("---")
+            st.markdown("#### ⚡ Operations & Queues")
+            o1, o2, o3 = st.columns(3)
+            with o1:
+                st.metric("Capture Success Rate", f"{fin_ops['payment_operations']['capture_success_rate']}%")
+                st.caption(f"Refund Rate: {fin_ops['payment_operations']['refund_rate']}%")
+            with o2:
+                st.metric("Payout Success Rate", f"{fin_ops['payout_operations']['payout_success_rate']}%")
+                st.caption(f"Failed Payouts: {fin_ops['payout_operations']['failed_payouts']}")
+            with o3:
+                st.metric("Open Discrepancies", fin_ops["reconciliation"]["open_discrepancies_count"])
+                st.caption("Reconciliation exceptions requiring review")
+
+            st.markdown("---")
+            st.markdown("#### 🤖 Review & Verification Telemetry")
+            r1, r2 = st.columns(2)
+            with r1:
+                st.metric("Review Backlog", rev_ops["human_review_pipeline"]["backlog_pending"])
+                st.caption(f"Completion Rate: {rev_ops['human_review_pipeline']['completion_rate']}%")
+            with r2:
+                st.metric("AI Confidence Average", f"{rev_ops['ai_verification_engine']['average_confidence']}%")
+                st.caption(f"Flagged Rate: {rev_ops['ai_verification_engine']['flag_rate']}%")
+
+        except Exception as e:
+            st.error(f"Error loading administrator telemetry: {e}")
+
+
+# ============================================================================
+# PAGE: GEOGRAPHIC IMPACT MAP (Phase 11)
+# ============================================================================
+
+def page_impact_map():
+    """Interactive geographic visualization with location privacy controls."""
+    st.header("🗺️ Global Project Impact Locations")
+    st.markdown("Explore the geographic reach and verified impact of CharityChain projects. Sensitive locations (such as domestic violence shelters and medical outposts) are aggregated to coarse regional centroids.")
+
+    f_col1, f_col2, f_col3 = st.columns(3)
+    with f_col1:
+        cat_filter = st.selectbox("Filter Category", ["All", "Community Development", "Clean Energy", "Education", "Healthcare", "Wildlife"], index=0)
+    with f_col2:
+        status_filter = st.selectbox("Filter Status", ["All", "ACTIVE", "COMPLETED", "DRAFT"], index=0)
+    with f_col3:
+        country_filter = st.text_input("Country (e.g. USA, IND, KEN)", value="")
+
+    category_arg = None if cat_filter == "All" else cat_filter
+    status_arg = None if status_filter == "All" else status_filter
+    country_arg = None if not country_filter.strip() else country_filter.strip()
+
+    try:
+        with SessionFactory() as db_session:
+            markers = GeographicAnalyticsService.get_public_impact_map_data(
+                db_session, category=category_arg, status=status_arg, country=country_arg
+            )
+            density = GeographicAnalyticsService.get_regional_density_aggregates(db_session)
+
+        if not markers:
+            st.info("No projects match the selected geographic criteria.")
+        else:
+            if FOLIUM_AVAILABLE:
+                center_lat = sum(m["latitude"] for m in markers) / len(markers)
+                center_lon = sum(m["longitude"] for m in markers) / len(markers)
+                m_obj = folium.Map(location=[center_lat, center_lon], zoom_start=2, tiles="OpenStreetMap")
+
+                status_colors = {
+                    "ACTIVE": "blue",
+                    "COMPLETED": "green",
+                    "RELEASED": "purple",
+                    "PENDING": "orange"
+                }
+
+                for item in markers:
+                    color = status_colors.get(item["status"], "gray")
+                    privacy_badge = "<span style='color: #e53e3e;'>🔒 Regional Centroid (Location Protected)</span><br>" if item["is_obfuscated"] else ""
+                    popup_html = f"""
+                    <div style="width: 250px;">
+                        <h4>{item['title']}</h4>
+                        <p><strong>NGO:</strong> {item['organization_name']}</p>
+                        <p><strong>Category:</strong> {item['category']}</p>
+                        <p><strong>Status:</strong> {item['status']}</p>
+                        <p><strong>Target:</strong> {item['target_formatted']}</p>
+                        <p><strong>Raised:</strong> {item['raised_formatted']}</p>
+                        {privacy_badge}
+                    </div>
+                    """
+                    folium.Marker(
+                        location=[item["latitude"], item["longitude"]],
+                        popup=folium.Popup(popup_html, max_width=280),
+                        tooltip=f"{item['title']} ({item['organization_name']})",
+                        icon=folium.Icon(color=color, icon="info-sign")
+                    ).add_to(m_obj)
+
+                folium_static(m_obj, width=1200, height=550)
+
+        st.markdown("---")
+        st.subheader("🌍 Regional Project Density Breakdown")
+        if density and density.get("density"):
+            st.dataframe(density["density"], use_container_width=True)
+
+    except Exception as e:
+        st.error(f"Error loading impact map: {e}")
+
+
+# ============================================================================
+# PAGE: PUBLIC TRANSPARENCY PORTAL (Phase 11)
+# ============================================================================
+
+def page_public_transparency():
+    """Unauthenticated public transparency portal displaying verifiable platform statistics."""
+    st.header("🌐 Public Transparency Portal")
+    st.markdown("Independent, verifiable charitable metrics computed directly from authoritative database records. Open to all donors, NGOs, and the public.")
+
+    tab_overview, tab_projects, tab_ngos, tab_methodology = st.tabs([
+        "📊 Global Overview",
+        "📁 Public Project Explorer",
+        "🏢 Verified NGO Directory",
+        "📜 Transparency Methodology"
+    ])
+
+    with tab_overview:
+        st.subheader("🌐 Global Platform Impact & Financial Transparency")
+        try:
+            with SessionFactory() as db_session:
+                pub_overview = PublicTransparencyService.get_global_overview(db_session)
+
+            c1, c2, c3, c4 = st.columns(4)
+            with c1:
+                st.metric("Listed Organizations", pub_overview["organizations"]["total_listed"])
+                st.caption(f"Verified: {pub_overview['organizations']['verified']}")
+            with c2:
+                st.metric("Published Projects", pub_overview["projects"]["published"])
+                st.caption(f"Active: {pub_overview['projects']['active']} | Completed: {pub_overview['projects']['completed']}")
+            with c3:
+                st.metric("Verified Milestones", pub_overview["milestones"]["verified"])
+                st.caption(f"Total: {pub_overview['milestones']['total']}")
+            with c4:
+                st.metric("Certificates Issued", pub_overview["impact_certificates_issued"])
+                st.caption("Cryptographically verifiable attestations")
+
+            st.markdown("---")
+            st.subheader("💳 Financial Clarity")
+            st.write("CharityChain enforces strict separation between gross donor pledges, settled captures, refunds, and actual NGO payouts.")
+            
+            f_col1, f_col2, f_col3, f_col4 = st.columns(4)
+            fin_t = pub_overview["financial_transparency"]
+            with f_col1:
+                st.metric("Captured Donations", fin_t["captured_formatted"])
+            with f_col2:
+                st.metric("Donor Refunds", f"${fin_t['refunded_cents']/100:,.2f}")
+            with f_col3:
+                st.metric("Net Platform Funding", fin_t["net_donations_formatted"])
+            with f_col4:
+                st.metric("Confirmed Disbursements", fin_t["disbursed_formatted"])
+
+        except Exception as e:
+            st.error(f"Error loading public transparency overview: {e}")
+
+    with tab_projects:
+        st.subheader("📁 Published Charitable Projects")
+        try:
+            with SessionFactory() as db_session:
+                pub_projects = PublicTransparencyService.get_public_projects(db_session, limit=25)
+
+            if not pub_projects:
+                st.info("No public projects listed at this time.")
+            else:
+                for proj in pub_projects:
+                    with st.expander(f"🎗️ {proj['title']} — {proj['raised_formatted']} / {proj['target_formatted']} ({proj['funding_percent']}%)", expanded=False):
+                        st.markdown(f"**NGO:** {proj['organization_name']} | **Category:** {proj['category']} | **Status:** `{proj['status']}`")
+                        if proj["summary"]:
+                            st.write(proj["summary"])
+                        st.progress(min(1.0, proj["funding_percent"] / 100.0))
+                        st.caption(f"Milestones: {proj['milestones_completed']} of {proj['milestones_total']} completed ({proj['milestones_verified']} verified)")
+        except Exception as e:
+            st.error(f"Error loading public projects: {e}")
+
+    with tab_ngos:
+        st.subheader("🏢 Verified NGO Profiles")
+        try:
+            with SessionFactory() as db_session:
+                from backend.app.db.models.users import Organization
+                from sqlalchemy import select
+                orgs = db_session.scalars(select(Organization)).all()
+
+            if not orgs:
+                st.info("No organizations registered yet.")
+            else:
+                for org in orgs:
+                    with SessionFactory() as db_s:
+                        prof = PublicTransparencyService.get_public_organization_profile(db_s, org.id)
+                    if prof:
+                        st.markdown(f"#### 🏛️ {prof['name']} — [{prof['status']}]")
+                        p1, p2, p3 = st.columns(3)
+                        with p1:
+                            st.metric("Public Projects", prof["total_public_projects"])
+                        with p2:
+                            st.metric("Total Raised", prof["total_raised_formatted"])
+                        with p3:
+                            st.metric("Confirmed Disbursements", prof["confirmed_disbursements_formatted"])
+                        st.markdown("---")
+        except Exception as e:
+            st.error(f"Error loading NGO profiles: {e}")
+
+    with tab_methodology:
+        st.subheader("📜 Transparency Principles & Calculation Methodology")
+        method = PublicTransparencyService.get_methodology()
+        st.info("💡 **Core Guiding Principle:** " + method["principles"][0])
+
+        st.markdown("#### 1. Financial Treatment")
+        for k, v in method["financial_calculation"].items():
+            st.markdown(f"- **{k.replace('_', ' ').title()}:** {v}")
+
+        st.markdown("#### 2. Verification & Review Invariants")
+        for k, v in method["verification_and_review"].items():
+            st.markdown(f"- **{k.replace('_', ' ').title()}:** {v}")
+
+        st.markdown("#### 3. Privacy & Exclusion Protections")
+        st.markdown(method["privacy_and_exclusions"]["excluded_data"])
+
+
+# ============================================================================
 # MAIN ROUTING
 # ============================================================================
 
@@ -2662,7 +3161,8 @@ def main():
             "Analytics",
             "Impact Map",
             "Certificates",
-            "Notifications & Webhooks"
+            "Notifications & Webhooks",
+            "Public Transparency"
         ]
 
         page = st.radio(
@@ -2701,16 +3201,15 @@ def main():
     elif page in ["Submit Evidence", "Evidence"]:
         page_submit_evidence()
     elif page == "Analytics":
-        show_analytics_dashboard()
+        page_analytics()
     elif page in ["Impact Map", "Map"]:
-        st.header("🗺️ Global Project Impact Locations")
-        m = create_project_map(st.session_state.db.get_all_milestones())
-        if m and FOLIUM_AVAILABLE:
-            folium_static(m, width=1200, height=600)
+        page_impact_map()
     elif page == "Certificates":
         page_certificates()
     elif page == "Notifications & Webhooks":
         page_notifications_and_webhooks()
+    elif page == "Public Transparency":
+        page_public_transparency()
 
 if __name__ == "__main__":
     try:

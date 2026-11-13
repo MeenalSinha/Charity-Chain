@@ -109,8 +109,23 @@ This document maintains an accurate, truthful record of functionality that is cu
   - **Insecure HTTP Webhooks**: Strictly blocked in production environments (`WEBHOOK_ALLOW_INSECURE_HTTP=False`). Subscribed webhook endpoints must present valid TLS/HTTPS certificates.
   - **Background Worker Runtime**: In development and testing, `NotificationWorker` can run on-demand or with `--once`. In clustered production deployments, run worker processes as dedicated background services.
 - **Boundaries Preserved**:
-  - Public transparency dashboards, donor portfolio analytics, and geographic impact heatmaps remain deferred to Phase 11.
   - Full Next.js frontend migration remains scheduled for Phase 12.
+
+## 11. Analytics, Impact Reporting & Public Transparency (Phase 11 Completed)
+- **Current Status**:
+  - All legacy analytics methods (relying on unverified TinyDB entries, arbitrary ETH conversions, or unanchored mock counts) have been deprecated and replaced with PostgreSQL database models and live financial records.
+  - Multi-dimensional, tenant-isolated NGO analytics (`NGOAnalyticsService`) tracking funding progress, donor retention rates, donation size distributions, AI verification quality diagnostics, and exportable reports.
+  - Personalized donor portfolios (`DonorAnalyticsService`) supporting multi-currency segregated giving totals, end-to-end contribution-to-impact lifecycle tracking, and annual tax statements with standard disclaimers.
+  - Public transparency portal (`PublicTransparencyService`) exposing verified NGO directories, public project explorers, methodology disclosures, and global platform indicators without exposing PII.
+  - Geographic impact mapping (`GeographicAnalyticsService`) with coordinate bounds validation, country density metrics, and automatic coarse centroid obfuscation (~11.1 km radius) for sensitive locations (`is_location_sensitive == True`).
+  - Safe data exports (`AnalyticsExportService`) with CWE-1236 CSV formula injection sanitization prepending single quotes to formula trigger characters (`=`, `+`, `-`, `@`, `\t`, `\r`).
+  - Interactive Streamlit workspaces (`app_ui.py`) for live homepage metrics, donor portfolios, NGO/Platform analytics, Folium geospatial maps, and public transparency.
+- **Operational & Analytical Disclosures**:
+  - **Tax Disclosure Disclaimer**: Platform annual giving statements are provided strictly for informational purposes based on recorded payments. CharityChain is a technology platform and does not provide formal legal or tax advice.
+  - **Location Privacy Granularity**: Sensitive projects coarsen GPS coordinates to 1 decimal place (~11.1 km resolution). Precise coordinates are restricted to authorized project managers and administrators.
+- **Boundaries Preserved**:
+  - Full Next.js frontend migration remains scheduled for Phase 12.
+  - SOC2, Prometheus metrics, and advanced APM remain scheduled for Phase 13.
 
 
 

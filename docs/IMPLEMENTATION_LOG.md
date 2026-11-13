@@ -267,6 +267,23 @@
   - Integrated dedicated **Notifications & Webhooks** page in Streamlit `app_ui.py` covering Notification Center, Communication Preferences, and Outbound Webhooks management.
   - Authored 10 automated test suites adding 29 tests across unit, integration, security, and functional layers. Full test suite: **337 / 337 passed (100%)** in 104s with 0 failures and 0 errors.
 
+## Phase 11: Analytics, Impact Reporting & Public Transparency
+- **Status**: COMPLETED
+- **Key Changes**:
+  - Conducted Pre-Phase 11 verification gate confirming all 337 Phase 10 tests passed; audited legacy analytics dependencies (TinyDB, arbitrary ETH math, unanchored metrics); authored `docs/PRE_PHASE_11_VERIFICATION_REPORT.md` and `docs/LEGACY_ANALYTICS_MIGRATION_REPORT.md`.
+  - Created canonical metric catalog in `backend/app/services/analytics/metric_definitions.py` and authored `docs/METRIC_DEFINITIONS.md`.
+  - Added 3 database models (`AnalyticsSnapshot`, `AnalyticsExportJob`, `PublicTransparencyPublication`) in `backend/app/db/models/analytics.py` and added `is_location_sensitive` to `Project` and `Milestone` in `backend/app/db/models/projects.py`.
+  - Implemented and verified Alembic migration `011_phase11_analytics_and_transparency.py`.
+  - Implemented `PlatformAnalyticsService` providing platform KPIs, payment/refund telemetry, payout health, review workload, and live double-entry general ledger trial balance check.
+  - Implemented `NGOAnalyticsService` providing tenant-isolated NGO overview, project funding progress, donor retention rate, donation size distribution, AI evidence diagnostics, and impact report generation.
+  - Implemented `DonorAnalyticsService` supporting multi-currency segregated giving totals, end-to-end contribution-to-impact journey tracking (`Donation -> Project -> Milestone -> Evidence -> AI -> Review -> Certificate`), and annual tax statements.
+  - Implemented `PublicTransparencyService` exposing privacy-safe global metrics, public project explorer, verified NGO directory, and calculation methodology disclosure without disclosing PII.
+  - Implemented `GeographicAnalyticsService` providing coordinate bounds validation, country density metrics, and coarse centroid obfuscation (~11.1 km radius) for sensitive project locations.
+  - Implemented `AnalyticsExportService` with CWE-1236 CSV formula injection defense (sanitizing cells starting with `=`, `+`, `-`, `@`, `\t`, `\r`) and plain text report formatting.
+  - Defined Pydantic schemas in `backend/app/schemas/analytics.py` and mounted role-authorized endpoints in `backend/app/api/v1/analytics.py` and public unauthenticated endpoints in `backend/app/api/v1/transparency.py`.
+  - Upgraded Streamlit interface in `app_ui.py`: live homepage KPIs via `PlatformAnalyticsService`, multi-tab donor portfolio and annual reports, dedicated NGO & Platform Analytics page, Folium geospatial impact map, and public transparency portal.
+  - Authored 14 automated test files adding 21 tests across unit, integration, security, and functional layers. Full test suite: **358 / 358 passed (100%)** with zero regressions.
+
 
 
 

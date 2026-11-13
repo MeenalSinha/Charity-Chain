@@ -216,6 +216,26 @@
 | **10.12** | Streamlit Notification & Webhook UI Workspaces | **COMPLETED** | Added dedicated **Notifications & Webhooks** navigation item and interactive page with tabs for Notification Center, Communication Preferences, and Outbound Webhooks. |
 | **10.13** | Comprehensive Automated Testing (337 Tests Passing) | **COMPLETED** | Authored 10 test suites adding 29 Phase 10 tests across unit, integration, security, and functional layers. All 337 tests passing in 104s with 100% pass rate. |
 
+---
+
+## Phase 11: Analytics, Impact Reporting & Public Transparency
+
+| Task ID | Task Description | Status | Verification Note |
+|:---:|:---|:---:|:---|
+| **11.1** | Pre-Phase 11 Audit & Verification Gate | **COMPLETED** | Verified all 337 Phase 10 tests passing. Documented legacy analytics issues (TinyDB reliance, arbitrary ETH math, unanchored metrics) in `docs/PRE_PHASE_11_VERIFICATION_REPORT.md` and `docs/LEGACY_ANALYTICS_MIGRATION_REPORT.md`. |
+| **11.2** | Canonical Metric Catalog & Definitions | **COMPLETED** | Authored `metric_definitions.py` and `docs/METRIC_DEFINITIONS.md` providing standard formulas, sources, and formatting for all financial and impact indicators. |
+| **11.3** | Relational Models & Alembic Migration 011 | **COMPLETED** | Created `analytics_snapshots`, `analytics_export_jobs`, `public_transparency_publications` tables and added `is_location_sensitive` to `projects` and `milestones` via Alembic migration `011`. |
+| **11.4** | Platform-Wide & Financial Operations Analytics | **COMPLETED** | Implemented `PlatformAnalyticsService` with live global KPIs, payment success/refund rates, payout reliability, review workload throughput, and double-entry general ledger trial balance consistency check. |
+| **11.5** | Tenant-Isolated NGO Performance Analytics | **COMPLETED** | Implemented `NGOAnalyticsService` with tenant isolation, funding progress by project, donor retention rate, donation size distribution, AI evidence quality diagnostics, and exportable impact reports. |
+| **11.6** | Personalized Donor Portfolio & Impact Journeys | **COMPLETED** | Implemented `DonorAnalyticsService` supporting multi-currency segregated giving totals, end-to-end contribution-to-impact tracking (`Donation -> Project -> Milestone -> Evidence -> AI -> Review -> Certificate`), and annual tax statements. |
+| **11.7** | Public Transparency Service & Open Disclosure | **COMPLETED** | Implemented `PublicTransparencyService` exposing privacy-safe global indicators, public project explorer, verified NGO directory, and calculation methodology disclosure. |
+| **11.8** | Geographic Impact Mapping & Location Privacy | **COMPLETED** | Implemented `GeographicAnalyticsService` with coordinate bounds validation, country density metrics, and coarse centroid obfuscation (~11.1 km radius) for sensitive project locations. |
+| **11.9** | Analytics Data Exports & Formula Injection Hardening | **COMPLETED** | Implemented `AnalyticsExportService` with CWE-1236 CSV formula injection sanitization (prepending `'` to `=`, `+`, `-`, `@`, `\t`, `\r` values) and plain text report generation. |
+| **11.10** | REST API Routing & Schemas | **COMPLETED** | Implemented Pydantic v2 schemas in `schemas/analytics.py`, mounted authenticated endpoints under `/api/v1/analytics/*`, and unauthenticated public transparency endpoints under `/api/v1/transparency/*`. |
+| **11.11** | Streamlit UI Modernization & Integration | **COMPLETED** | Modernized `page_home()` with live DB metrics; enhanced `page_donor_dashboard()` with portfolio tabs; created `page_analytics()`, `page_impact_map()`, and `page_public_transparency()`. |
+| **11.12** | Comprehensive Automated Testing (358 Tests Passing) | **COMPLETED** | Authored 14 test suites adding 21 Phase 11 tests across unit, integration, security, and functional layers. Full test suite passing at 100% (358 / 358 passed). |
+
+
 
 
 

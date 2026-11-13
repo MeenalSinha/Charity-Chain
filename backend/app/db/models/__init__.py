@@ -34,6 +34,9 @@ from backend.app.db.models.notifications import (
     NotificationDeliveryAttempt, WebhookSubscription, WebhookEndpointSecret,
     WebhookDelivery, WebhookDeliveryAttempt, NotificationTemplateVersion
 )
+from backend.app.db.models.analytics import (
+    AnalyticsSnapshot, AnalyticsExportJob, PublicTransparencyPublication
+)
 
 __all__ = [
     "Base",
@@ -97,6 +100,9 @@ __all__ = [
     "WebhookEndpointSecret",
     "WebhookDelivery",
     "WebhookDeliveryAttempt",
-    "NotificationTemplateVersion"
+    "NotificationTemplateVersion",
+    "AnalyticsSnapshot",
+    "AnalyticsExportJob",
+    "PublicTransparencyPublication"
 ]
 

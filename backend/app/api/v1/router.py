@@ -34,6 +34,8 @@ from backend.app.api.v1.certificates import router as certificates_router
 from backend.app.api.v1.impact_ledger import router as impact_ledger_router
 from backend.app.api.v1.notifications import router as notifications_router
 from backend.app.api.v1.webhook_subscriptions import router as webhook_subscriptions_router
+from backend.app.api.v1.analytics import router as analytics_router
+from backend.app.api.v1.transparency import router as transparency_router
 
 api_v1_router = APIRouter(prefix=settings.API_PREFIX)
 
@@ -62,6 +64,8 @@ api_v1_router.include_router(certificates_router)
 api_v1_router.include_router(impact_ledger_router)
 api_v1_router.include_router(notifications_router)
 api_v1_router.include_router(webhook_subscriptions_router)
+api_v1_router.include_router(analytics_router)
+api_v1_router.include_router(transparency_router)
 
 
 @api_v1_router.get(
