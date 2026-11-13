@@ -65,8 +65,7 @@ jobs:
           DEBUG: "false"
         run: |
           mkdir -p test-results
-          pytest tests/ -v --tb=short --junit-xml=test-results/backend.xml \
-            --ignore=tests/smoke
+          pytest tests/ -v --tb=short --junit-xml=test-results/backend.xml --ignore=tests/smoke
 
       - name: Print failed tests on failure
         if: failure()
