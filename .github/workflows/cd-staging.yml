@@ -3,10 +3,11 @@ name: CD — Deploy to Staging
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 concurrency:
   group: cd-staging
-  cancel-in-progress: false   # Never cancel an in-flight deployment
+  cancel-in-progress: false
 
 env:
   REGISTRY: gcr.io
@@ -20,6 +21,8 @@ jobs:
     name: Deploy to Staging
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # Only run deployment if GCP credentials secret is configured
+    if: "${{ secrets.GCP_SA_KEY_STAGING != '' }}"
     environment:
       name: staging
       url: https://staging.charitychain.dev
@@ -65,7 +68,6 @@ jobs:
 
       - name: Run database migrations
         run: |
-          # Run migrations via Cloud Run Job before deploying new image
           gcloud run jobs execute charitychain-migrate-staging \
             --region=${{ env.REGION }} \
             --wait \
@@ -113,7 +115,7 @@ jobs:
 
       - name: Run smoke tests
         run: |
-          sleep 15   # Wait for Cloud Run to become healthy
+          sleep 15
           BACKEND_URL=$(gcloud run services describe ${{ env.BACKEND_SERVICE }} \
             --region=${{ env.REGION }} --format="value(status.url)")
           curl -f "${BACKEND_URL}/health" || (echo "Backend health check failed" && exit 1)
@@ -124,4 +126,3 @@ jobs:
         run: |
           STATUS="${{ job.status }}"
           echo "Staging deployment ${STATUS} — commit ${{ steps.tags.outputs.short_sha }}"
-

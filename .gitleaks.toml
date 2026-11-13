@@ -1,0 +1,26 @@
+# Gitleaks Configuration for CharityChain
+# Phase 14: Allowlist test fixtures, synthetic tokens, examples, and docs
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allowlist test keys, documentation, and example files"
+paths = [
+    '''tests/''',
+    '''docs/''',
+    '''\.env\..*\.example''',
+    '''docker-compose.*\.yml''',
+    '''infra/terraform/.*\.example''',
+    '''\.github/workflows/''',
+    '''backend/alembic/versions/''',
+]
+regexes = [
+    '''test-secret-key''',
+    '''test-jwt-key''',
+    '''charity_secure_password''',
+    '''staging_password_change_me''',
+    '''REPLACE_WITH_''',
+    '''change_me''',
+    '''00000000000000''',
+]
