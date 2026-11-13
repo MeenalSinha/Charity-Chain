@@ -55,3 +55,4 @@ The Streamlit interface (`app_ui.py`) includes a dedicated **Public Transparency
 - **Project Transparency Explorer**: Searchable and filterable list of public initiatives.
 - **Verified Organizations Directory**: Track record and impact achievements of NGO partners.
 - **Calculation Methodology & Disclosure**: Direct link to formulas and open audit standards.
+

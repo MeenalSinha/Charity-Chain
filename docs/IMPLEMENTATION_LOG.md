@@ -287,3 +287,29 @@
 
 
 
+
+## Phase 12: Modern Frontend Migration (Next.js / React)
+- **Status**: COMPLETED
+- **Key Changes**:
+  - Executed Pre-Phase 12 verification audit: all 17 Phase 11 documentation files verified; full test suite of **358 / 358 tests passing (100%)** independently confirmed; published `docs/PRE_PHASE_12_VERIFICATION_REPORT.md`.
+  - Initialized production Next.js 16 (App Router) project in `frontend/` with React 19, TypeScript strict mode, and Tailwind CSS.
+  - Implemented secure Backend-for-Frontend (BFF) authentication using server-side Next.js Route Handlers (`/api/auth/login`, `/api/auth/logout`, `/api/auth/refresh`, `/api/auth/session`, `/api/auth/register`, `/api/auth/verify-email`, `/api/auth/forgot-password`, `/api/auth/reset-password`). Tokens (`cc_access_token`, `cc_refresh_token`) are stored exclusively in `HttpOnly`, `SameSite=Lax`, and `Secure` cookies with zero client-side JavaScript exposure.
+  - Implemented typed, centralized API client (`apiClient`) with correlation IDs (`X-Correlation-ID`), timeout handling, unified error wrapping (`ApiClientError`), and server-side authenticated client (`serverApi`).
+  - Created reusable design system component library in `frontend/components/ui/`: `Button`, `Badge`, `StatusBadge`, `Card`, `KPICard`, `ProgressBar`, `EmptyState`, `Skeleton`, `PublicHeader`, `PublicFooter`, and `DashboardLayout`.
+  - Built comprehensive public website:
+    - Homepage (`/`) with hero, live platform KPIs, how-it-works impact lifecycle, featured projects, and cryptographic trust indicators.
+    - Projects catalog (`/projects`) with category filters and progress tracking.
+    - Project details (`/projects/[projectId]`) with milestone breakdown, evidence status, and PayPal donation CTA.
+    - Public NGO profile (`/organizations/[organizationId]`) with legal verification status and published initiatives.
+    - Public transparency portal (`/transparency`) with live platform indicators and calculation methodology.
+    - Geographic impact map (`/impact-map`) with privacy-preserving centroid obfuscation (~11.1 km).
+    - Public certificate verification (`/certificates/verify/[certificateId]`) with real-time Ed25519 signature checks and raw RFC 8785 proof envelope.
+  - Built 4 authenticated role workspaces:
+    - Donor Workspace (`/dashboard/donor`): Contribution summary, net impact giving, donation receipts, and visual contribution-to-impact journey (`Donation -> Project -> Milestone -> Evidence -> AI -> Review -> Certificate`).
+    - NGO Workspace (`/dashboard/ngo`): Organization onboarding, project creation, milestone tracking, evidence submission queue, and funding analytics.
+    - Reviewer Workspace (`/dashboard/reviewer`): Review queue, workload caps, AI confidence diagnostics, and dual-key decision actions.
+    - Administrator Workspace (`/dashboard/admin`): Platform telemetry, double-entry general ledger trial balance check, and subsystem health indicators.
+  - Authored Vitest unit and component test suite (11/11 tests passing).
+  - Verified clean Next.js production compilation (`npx next build`) generating 24 static and dynamic routes with 0 errors.
+  - Created `frontend/Dockerfile` and added `frontend` service to `docker-compose.yml` (Port 3000).
+  - Maintained full backward compatibility with legacy Streamlit interface (`app_ui.py`) as an auxiliary fallback.

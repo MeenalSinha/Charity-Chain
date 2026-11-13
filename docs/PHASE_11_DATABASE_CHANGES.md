@@ -82,3 +82,4 @@ ALTER TABLE milestones ADD COLUMN is_location_sensitive BOOLEAN NOT NULL DEFAULT
 ## 4. Reversibility & Data Integrity
 - The Alembic migration `011_phase11_analytics_and_transparency.py` implements both `upgrade()` and `downgrade()` functions.
 - Downgrade cleanly drops the three tables and removes the `is_location_sensitive` columns from `projects` and `milestones`.
+

@@ -68,3 +68,4 @@ The platform now delivers four interconnected, purpose-built analytics experienc
 - **Location Privacy**: Sensitive projects automatically coarsen coordinates to regional centroids (~11.1 km radius).
 - **Formula Injection Defense**: CSV cells with formula triggers (`=`, `+`, `-`, `@`, `\t`, `\r`) are automatically escaped.
 - **Tenant Isolation**: Non-members cannot query private NGO analytics (HTTP 403 Forbidden).
+

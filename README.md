@@ -2,7 +2,9 @@
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-1.40+-FF4B4B.svg)](https://streamlit.io/)
+[![Next.js](https://img.shields.io/badge/Next.js-16.4+-black.svg)](https://nextjs.org/)
+[![React](https://img.shields.io/badge/React-19-blue.svg)](https://react.dev/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-4.3+-38bdf8.svg)](https://tailwindcss.com/)
 [![Tests](https://img.shields.io/badge/tests-358%2F358%20passing-brightgreen.svg)](docs/PHASE_11_TEST_REPORT.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -103,14 +105,23 @@ Copy the provided template to create your `.env` file (safe development defaults
 cp .env.example .env
 ```
 
-### 3️⃣ Run Streamlit Interactive UI
+### 3️⃣ Run Next.js Production Web Application (Primary Frontend)
+
+```bash
+cd frontend
+pnpm install
+pnpm dev
+```
+Open your browser at **http://localhost:3000/**.
+
+### 4️⃣ Run Streamlit Interactive UI (Auxiliary Fallback)
 
 ```bash
 streamlit run app_ui.py
 ```
 Open your browser at **http://localhost:8501/**.
 
-### 4️⃣ Run FastAPI Modular Backend
+### 5️⃣ Run FastAPI Modular Backend
 
 ```bash
 uvicorn backend.app.main:app --reload --port 8000
@@ -118,12 +129,12 @@ uvicorn backend.app.main:app --reload --port 8000
 - Interactive Swagger UI: **http://localhost:8000/docs**
 - Health Check: **http://localhost:8000/api/v1/health**
 
-### 5️⃣ Run Multi-Container Topology (Docker Compose)
+### 6️⃣ Run Multi-Container Topology (Docker Compose)
 
 ```bash
 docker compose up -d
 ```
-Starts PostgreSQL 16 on port `5432`, Redis 7 on port `6379`, and the FastAPI Backend on port `8000`.
+Starts PostgreSQL 16 on port `5432`, Redis 7 on port `6379`, FastAPI Backend on port `8000`, and Next.js Frontend on port `3000`.
 
 ---
 

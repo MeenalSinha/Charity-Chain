@@ -132,3 +132,14 @@ This document maintains an accurate, truthful record of functionality that is cu
 
 
 
+
+## 12. Modern Frontend Migration (Phase 12 Completed)
+- **Current Status**:
+  - Full Next.js 16 App Router application implemented with React 19, TypeScript strict mode, and Tailwind CSS in `frontend/`.
+  - Backend-for-Frontend (BFF) authentication active with `HttpOnly`, `SameSite=Lax`, and `Secure` session cookies. Zero tokens stored in client-accessible storage.
+  - Public web experience live: homepage (`/`), project catalog (`/projects`), project details with milestone progress (`/projects/[id]`), NGO profile (`/organizations/[id]`), transparency portal (`/transparency`), privacy-preserving impact map (`/impact-map`), and certificate verification (`/certificates/verify/[id]`).
+  - Four dedicated role workspaces active: Donor (`/dashboard/donor`), NGO (`/dashboard/ngo`), Reviewer (`/dashboard/reviewer`), and Administrator (`/dashboard/admin`).
+  - Complete integration with existing FastAPI backend preserving all business logic, financial models, AI verification, dual-key human review, and proof-of-impact certificates.
+  - Legacy Streamlit interface (`app_ui.py`) preserved as an auxiliary fallback.
+- **Boundaries Preserved**:
+  - Advanced APM, Prometheus telemetry, and SOC2 compliance monitoring remain scheduled for Phase 13.

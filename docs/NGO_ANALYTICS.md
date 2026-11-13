@@ -64,3 +64,4 @@ In the Streamlit application (`app_ui.py`):
 3. **Funding Breakdown Chart**: Interactive bar/progress breakdown comparing target vs. raised funds per project.
 4. **Donor Tier Breakdown**: Visual breakdown of donor donation sizes and retention percentages.
 5. **One-Click Impact Report Generator**: Generates and downloads an exhaustive Markdown or CSV performance report for the organization.
+

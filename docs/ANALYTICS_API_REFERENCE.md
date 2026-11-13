@@ -155,3 +155,4 @@ Review case throughput, reviewer assignments, and verification backlog telemetry
 Exports donations to CSV with formula injection sanitization.
 - **Auth**: Bearer Token (`PLATFORM_ADMIN` or NGO `OWNER`/`ADMIN`)
 - **Response**: `200 OK` (`text/csv`)
+

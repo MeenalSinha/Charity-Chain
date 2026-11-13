@@ -48,3 +48,4 @@ The **Global Impact Map** page (`page_impact_map()` in `app_ui.py`) uses `folium
 - Standard projects display blue markers with detailed progress popups.
 - Sensitive projects display amber markers with coarse centroid indicators and privacy notices.
 - A summary data table displays country-by-country deployment metrics.
+

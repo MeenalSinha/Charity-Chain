@@ -41,3 +41,4 @@ Long-running export operations are tracked via the `analytics_export_jobs` table
 - **Status Lifecycle**: `PENDING -> PROCESSING -> COMPLETED | FAILED`
 - **Audit Columns**: `requested_by_id`, `created_at`, `completed_at`, `file_format`, `file_storage_key`, `checksum_sha256`.
 - **Retention**: Exported files are retained in secure storage (S3/MinIO) with time-limited signed download URLs.
+

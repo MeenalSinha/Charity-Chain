@@ -241,3 +241,24 @@
 
 
 
+
+---
+
+## Phase 12: Modern Frontend Migration (Next.js / React)
+
+| Task ID | Task Description | Status | Verification Note |
+|:---:|:---|:---:|:---|
+| **12.1** | Pre-Upgrade Audit & Phase 11 Verification Gate | **COMPLETED** | Audited all 17 Phase 11 documentation files; executed 358 backend tests with 100% pass rate; authored `docs/PRE_PHASE_12_VERIFICATION_REPORT.md`. |
+| **12.2** | Next.js App Router Project Foundation | **COMPLETED** | Initialized Next.js 16 in `frontend/` with TypeScript strict mode, React 19, Turbopack, and Tailwind CSS; configured `.env.example`. |
+| **12.3** | Centralized API Integration Architecture | **COMPLETED** | Implemented typed `apiClient` with correlation IDs, timeout controls, and unified `ApiClientError`; authored `docs/PHASE_12_FRONTEND_API_INVENTORY.md`. |
+| **12.4** | Authentication & Session Integration (BFF Pattern) | **COMPLETED** | Built Next.js Route Handlers managing `HttpOnly`, `SameSite=Lax`, and `Secure` cookies (`cc_access_token`, `cc_refresh_token`); zero tokens in `localStorage`. |
+| **12.5** | Design System & Reusable Component Library | **COMPLETED** | Created `Button`, `Badge`, `StatusBadge`, `Card`, `KPICard`, `ProgressBar`, `EmptyState`, `Skeleton`, `PublicHeader`, `PublicFooter`, and `DashboardLayout`. |
+| **12.6** | Public Website Experience | **COMPLETED** | Implemented homepage (`/`), project discovery (`/projects`), project details with milestones (`/projects/[id]`), NGO profile (`/organizations/[id]`), transparency portal (`/transparency`), and impact map (`/impact-map`). |
+| **12.7** | Public Certificate Verification | **COMPLETED** | Implemented `/certificates/verify/[certificateId]` displaying Ed25519 cryptographic validity, organization, and raw RFC 8785 proof envelope. |
+| **12.8** | Donor Workspace Application | **COMPLETED** | Implemented `/dashboard/donor` displaying captured giving, net impact, contribution journeys, donation receipts, and impact certificates. |
+| **12.9** | NGO Workspace Application | **COMPLETED** | Implemented `/dashboard/ngo` with organization onboarding, project creation, milestone status, evidence submission queue, and funding analytics. |
+| **12.10** | Reviewer Workspace Application | **COMPLETED** | Implemented `/dashboard/reviewer` featuring review queue, workload cap tracking, AI confidence scores, and dual-key signoff. |
+| **12.11** | Administrator Workspace Application | **COMPLETED** | Implemented `/dashboard/admin` featuring platform telemetry, double-entry general ledger trial balance check, and subsystem health indicators. |
+| **12.12** | Responsive Design & Accessibility Audit | **COMPLETED** | Verified responsive layouts (360px–1440px), semantic HTML, ARIA progress bars, focus rings, and WCAG 2.2 AA contrast ratios. |
+| **12.13** | Frontend Quality Engineering & Automated Testing | **COMPLETED** | Created Vitest test suite with 11 unit/component tests passing (100%); verified clean Next.js production build (`npx next build`) generating 24 routes. |
+| **12.14** | Docker & Deployment Integration | **COMPLETED** | Created `frontend/Dockerfile` and added `frontend` service to `docker-compose.yml` on port 3000; preserved legacy Streamlit fallback. |

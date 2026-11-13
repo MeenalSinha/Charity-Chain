@@ -60,3 +60,4 @@ Donors can generate an official annual giving report covering a given calendar y
 - **Strict Donor Ownership**: Donors can only access their own portfolio and tax reports (`/api/v1/analytics/donor/overview`, `/api/v1/analytics/donor/journey`, etc.). Platform admins have read-only audit access.
 - **Anonymous Giving**: If a donor chooses `is_anonymous = True`, their identity is permanently stripped from all public transparency feeds and NGO public reports.
 - **Zero Information Leakage**: Other donors cannot query or enumerate another user's contributions.
+

@@ -55,3 +55,4 @@ The `AnalyticsExportService` scans every cell before serializing to CSV:
   - `\r` (Carriage return)
 - The cell content is prepended with a single quote (`'`), which instructs spreadsheet parsers to treat the value strictly as plain text.
 - Tested and verified in `tests/unit/test_analytics_exports.py`.
+

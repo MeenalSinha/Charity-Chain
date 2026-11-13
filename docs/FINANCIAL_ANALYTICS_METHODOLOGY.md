@@ -61,3 +61,4 @@ Automated background jobs reconcile local captures against PayPal settlement bat
 - Matched transactions are confirmed in the ledger.
 - Unmatched or discrepant records create `ReconciliationItem` records with status `DISCREPANCY`.
 - Unresolved discrepancies are surfaced in the Platform Operations dashboard until manually resolved by finance operators.
+
