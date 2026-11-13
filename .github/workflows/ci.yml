@@ -1,4 +1,4 @@
-name: CI — Continuous Integration
+name: CI â€” Continuous Integration
 
 on:
   pull_request:
@@ -55,17 +55,18 @@ jobs:
       - name: Run tests
         env:
           ENVIRONMENT: testing
+          PYTHONPATH: .
           DATABASE_URL: sqlite+aiosqlite:///./ci_test.db
           REDIS_URL: redis://localhost:6379/0
-          SECRET_KEY: test-secret-key-at-least-64-hex-chars-for-ci-testing-00000000000000
-          JWT_SECRET_KEY: test-jwt-key-at-least-64-hex-chars-for-ci-testing-000000000000000
+          SECRET_KEY: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a089f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08
+          JWT_SECRET_KEY: 5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d85e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8
           ENCRYPTION_KEY: ""
           PAYPAL_ENVIRONMENT: sandbox
           SENTRY_DSN: ""
           DEBUG: "false"
         run: |
           mkdir -p test-results
-          pytest tests/ -v --tb=short --junit-xml=test-results/backend.xml --ignore=tests/smoke
+          python -m pytest --junit-xml=test-results/backend.xml 2>&1 | tee test-results/pytest-output.log
 
       - name: Print failed tests on failure
         if: failure()
@@ -74,17 +75,35 @@ jobs:
           import xml.etree.ElementTree as ET, glob, os
           summary_file = os.environ.get('GITHUB_STEP_SUMMARY')
           out = []
-          for f in glob.glob('test-results/*.xml'):
+          files = glob.glob('test-results/*.xml')
+          if not files:
+              out.append('### No test XML results found')
+          for f in files:
               out.append(f'### Test Results: {f}')
-              tree = ET.parse(f)
-              for tc in tree.iter('testcase'):
-                  for fail in tc.iter('failure'):
-                      classname = tc.attrib.get('classname', '')
-                      name = tc.attrib.get('name', '')
-                      first_line = (fail.text or '').strip().splitlines()[0] if fail.text else 'Failed'
-                      print(f'::error title={classname}.{name}::{first_line}')
-                      out.append(f'- **FAILED**: {classname}::{name}')
-                      out.append(f'```\n{fail.text[:500] if fail.text else \"\"}\n```')
+              try:
+                  tree = ET.parse(f)
+                  for tc in tree.iter('testcase'):
+                      for tag in ('failure', 'error'):
+                          for fail in tc.iter(tag):
+                              classname = tc.attrib.get('classname', '')
+                              name = tc.attrib.get('name', '')
+                              first_line = (fail.text or '').strip().splitlines()[0] if fail.text else tag.upper()
+                              print(f'::error title={classname}.{name}::{first_line}')
+                              out.append(f'- **{tag.upper()}**: {classname}::{name}')
+                              out.append(f'```\n{fail.text[:500] if fail.text else \"\"}\n```')
+                  for ts in tree.iter('testsuite'):
+                      for err in ts.iter('error'):
+                          first_line = (err.text or '').strip().splitlines()[0] if err.text else 'SUITE ERROR'
+                          print(f'::error title=TestSuite::{first_line}')
+                          out.append(f'- **SUITE ERROR**: {first_line}')
+                          out.append(f'```\n{err.text[:500] if err.text else \"\"}\n```')
+              except Exception as exc:
+                  out.append(f'Failed parsing {f}: {exc}')
+          if os.path.exists('test-results/pytest-output.log'):
+              out.append('### Pytest Raw Output (Last 100 lines)')
+              with open('test-results/pytest-output.log') as pf:
+                  lines = pf.readlines()
+                  out.append('```\n' + ''.join(lines[-100:]) + '\n```')
           content = '\n'.join(out)
           print(content)
           if summary_file and out:
