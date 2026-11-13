@@ -7,8 +7,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export default defineConfig({
+  root: __dirname,
   plugins: [react()],
   test: {
+    root: __dirname,
     environment: 'jsdom',
     setupFiles: ['./tests/setup.ts'],
     globals: true,

@@ -10,8 +10,8 @@ WORKDIR /app
 # Install pnpm via corepack
 RUN corepack enable pnpm
 
-COPY frontend/package.json frontend/pnpm-lock.yaml* ./
-RUN pnpm install --frozen-lockfile --prod=false
+COPY package.json pnpm-lock.yaml* ./
+RUN pnpm install --no-frozen-lockfile --prod=false
 
 # ---- Stage 2: Builder ----
 FROM node:22-alpine AS builder
@@ -20,10 +20,9 @@ WORKDIR /app
 RUN corepack enable pnpm
 
 COPY --from=deps /app/node_modules ./node_modules
-COPY frontend/ .
+COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED=1
-# Enable standalone output for minimal runtime image
 ENV NEXT_OUTPUT=standalone
 
 RUN pnpm build

@@ -21,7 +21,6 @@ jobs:
   pre-deploy-gate:
     name: Pre-Deployment Gate
     runs-on: ubuntu-latest
-    if: "${{ secrets.GCP_SA_KEY_PRODUCTION != '' }}"
     steps:
       - uses: actions/checkout@v4
       - name: Verify tag points to a commit that passed CI
@@ -35,7 +34,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     needs: [pre-deploy-gate]
-    if: "${{ secrets.GCP_SA_KEY_PRODUCTION != '' }}"
     environment:
       name: production
       url: https://charitychain.dev
@@ -75,7 +73,7 @@ jobs:
       - name: Build and push frontend image
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: ./frontend
           file: frontend/Dockerfile
           push: true
           tags: |

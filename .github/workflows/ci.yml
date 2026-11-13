@@ -55,6 +55,7 @@ jobs:
       - name: Run tests
         env:
           ENVIRONMENT: test
+          DATABASE_URL: sqlite:///./ci_test.db
           REDIS_URL: redis://localhost:6379/0
           SECRET_KEY: test-secret-key-at-least-64-hex-chars-for-ci-testing-00000000000000
           JWT_SECRET_KEY: test-jwt-key-at-least-64-hex-chars-for-ci-testing-000000000000000
@@ -102,6 +103,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
 
+      - name: Build Next.js
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
+        run: pnpm run build
+
       - name: TypeScript check
         run: pnpm run type-check
 
@@ -109,12 +116,6 @@ jobs:
         run: |
           mkdir -p ../test-results
           pnpm test -- --reporter=junit --outputFile=../test-results/frontend.xml
-
-      - name: Build Next.js
-        env:
-          NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
-          NEXT_PUBLIC_APP_URL: http://localhost:3000
-        run: pnpm run build
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
@@ -191,7 +192,7 @@ jobs:
       - name: Build frontend image
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: ./frontend
           file: frontend/Dockerfile
           push: false
           tags: charitychain-frontend:ci

@@ -1,8 +1,12 @@
+# ============================================================
+# CharityChain — CD Workflow: Staging Deployment
+# Triggers manually via workflow_dispatch
+# Deploys to Google Cloud Run (Staging Environment)
+# ============================================================
+
 name: CD — Deploy to Staging
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 concurrency:
@@ -21,8 +25,6 @@ jobs:
     name: Deploy to Staging
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    # Only run deployment if GCP credentials secret is configured
-    if: "${{ secrets.GCP_SA_KEY_STAGING != '' }}"
     environment:
       name: staging
       url: https://staging.charitychain.dev
@@ -61,7 +63,7 @@ jobs:
       - name: Build and push frontend image
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: ./frontend
           file: frontend/Dockerfile
           push: true
           tags: ${{ steps.tags.outputs.frontend_image }}
